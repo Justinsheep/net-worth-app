@@ -5,6 +5,7 @@ import { store } from './store'
 import { summarize, summarizePnl, fmtTwd, fmtPct } from './calc'
 import { loadPrices } from './prices'
 import AllocationChart from './components/AllocationChart'
+import TrendChart from './components/TrendChart'
 import HoldingForm from './components/HoldingForm'
 import HoldingsTable from './components/HoldingsTable'
 
@@ -12,6 +13,8 @@ const REFRESH_MS = 60_000 // 每 60 秒自動更新一次報價
 
 export default function App() {
   const holdings = useLiveQuery(() => db.holdings.orderBy('updatedAt').reverse().toArray(), [], [])
+  const snapshots = useLiveQuery(() => db.snapshots.orderBy('date').toArray(), [], [])
+  const [trendMetric, setTrendMetric] = useState('net')
   const [fx, setFx] = useState(32)
   const [fxAuto, setFxAuto] = useState(true)
   const [prices, setPrices] = useState({})
@@ -67,6 +70,13 @@ export default function App() {
 
   const { totalAsset, totalDebt, netWorth, byCat } = summarize(holdings, fx, prices)
   const pnl = summarizePnl(holdings, fx, prices)
+
+  // 每天記錄一次資產快照（同一天以最新值覆蓋），累積成走勢
+  useEffect(() => {
+    if (loading || !holdings.length) return
+    const date = new Date().toISOString().slice(0, 10)
+    store.putSnapshot({ id: date, date, netWorthTwd: netWorth, totalAssetTwd: totalAsset, totalDebtTwd: totalDebt })
+  }, [netWorth, totalAsset, totalDebt, loading, holdings.length])
 
   function openAdd() { setEditing(null); setFormOpen(true) }
   function openEdit(h) { setEditing(h); setFormOpen(true) }
@@ -169,6 +179,17 @@ export default function App() {
       {priceMeta.errors.length > 0 && (
         <div className="pricebar-errors">{priceMeta.errors.join('　·　')}</div>
       )}
+
+      <section className="panel trend">
+        <div className="trend-head">
+          <h3 className="panel-title">資產走勢</h3>
+          <div className="seg">
+            <button className={trendMetric === 'net' ? 'on' : ''} onClick={() => setTrendMetric('net')}>淨資產</button>
+            <button className={trendMetric === 'asset' ? 'on' : ''} onClick={() => setTrendMetric('asset')}>總資產</button>
+          </div>
+        </div>
+        <TrendChart snapshots={snapshots} metric={trendMetric} />
+      </section>
 
       <div className="grid">
         <section className="panel">
