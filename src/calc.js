@@ -102,3 +102,35 @@ export function fmtSignedNative(n, currency) {
   const unit = currency === 'USD' ? '$' : 'NT$'
   return (n >= 0 ? '+' : '-') + unit + Math.abs(Math.round(n)).toLocaleString('en-US')
 }
+
+// ---------- 大項彙總（第 6 版：可展開的持倉大項）----------
+// 單筆損益（台幣）
+export function lotPnlTwd(h, fx, prices) {
+  if (!hasCost(h)) return null
+  const rate = h.currency === 'USD' ? Number(fx || 0) : 1
+  return (lotValueNative(h, prices) - lotCost(h)) * rate
+}
+
+// 同一檔（多筆買入）的彙總
+export function symbolAgg(lots, fx, prices) {
+  let qty = 0
+  let valueTwd = 0
+  let costTwd = 0
+  let valueCostedTwd = 0
+  for (const h of lots) {
+    qty += Number(h.quantity || 0)
+    valueTwd += holdingValueTwd(h, fx, prices)
+    if (hasCost(h)) {
+      const rate = h.currency === 'USD' ? Number(fx || 0) : 1
+      costTwd += lotCost(h) * rate
+      valueCostedTwd += lotValueNative(h, prices) * rate
+    }
+  }
+  const anyCost = costTwd > 0
+  const pnlTwd = anyCost ? valueCostedTwd - costTwd : null
+  const roi = anyCost ? pnlTwd / costTwd : null
+  return { qty, valueTwd, costTwd, pnlTwd, roi, anyCost }
+}
+
+export const fmtSignedTwd = (n) =>
+  n == null ? '—' : (n >= 0 ? '+' : '-') + 'NT$' + Math.abs(Math.round(n)).toLocaleString('en-US')

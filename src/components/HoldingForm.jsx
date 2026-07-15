@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { CATEGORIES, isCashLike, catDefaultCurrency } from '../calc'
+import SymbolSearch from './SymbolSearch'
 
 const blank = {
   category: 'tw_stock',
@@ -13,12 +14,14 @@ const blank = {
 }
 
 const SYMBOL_HINT = {
-  tw_stock: '例：2330',
+  tw_stock: '打代號或名稱搜尋，例：0050',
   us_stock: '例：AAPL',
-  crypto: '例：BTC（會自動抓 BTCUSDT）',
+  crypto: '打代號或名稱搜尋，例：BTC',
   cash: '',
   debt: '',
 }
+
+const HAS_SEARCH = { tw_stock: true, crypto: true }
 
 export default function HoldingForm({ editing, onSave, onClose }) {
   const [form, setForm] = useState(blank)
@@ -46,7 +49,11 @@ export default function HoldingForm({ editing, onSave, onClose }) {
   const changeCategory = (cat) =>
     setForm((f) => ({ ...f, category: cat, currency: catDefaultCurrency(cat) }))
 
-  // 成本單價預覽（總投入 ÷ 數量）
+  // 從搜尋清單選代號：帶入代號；有名稱就一併帶入（仍可自己改）
+  function pickSymbol(code, name) {
+    setForm((f) => ({ ...f, symbol: code, ...(name != null ? { name } : {}) }))
+  }
+
   const q = Number(form.quantity) || 0
   const tc = Number(form.totalCost) || 0
   const perUnit = q && tc ? tc / q : null
@@ -83,12 +90,21 @@ export default function HoldingForm({ editing, onSave, onClose }) {
 
         <div className="field-row">
           <label className="field">
-            <span>名稱</span>
-            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="台積電 / 房貸 / 玉山活存" />
+            <span>代號{!cashLike ? '（用來抓報價）' : '（選填）'}</span>
+            {HAS_SEARCH[form.category] ? (
+              <SymbolSearch
+                category={form.category}
+                value={form.symbol}
+                onPick={pickSymbol}
+                placeholder={SYMBOL_HINT[form.category]}
+              />
+            ) : (
+              <input value={form.symbol} onChange={(e) => set('symbol', e.target.value)} placeholder={SYMBOL_HINT[form.category] || ''} />
+            )}
           </label>
           <label className="field">
-            <span>代號{!cashLike ? '（用來抓報價）' : '（選填）'}</span>
-            <input value={form.symbol} onChange={(e) => set('symbol', e.target.value)} placeholder={SYMBOL_HINT[form.category] || ''} />
+            <span>名稱</span>
+            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="選代號會自動帶入，可自己改" />
           </label>
         </div>
 
@@ -126,8 +142,8 @@ export default function HoldingForm({ editing, onSave, onClose }) {
             </div>
             <p className="hint">
               {perUnit != null
-                ? <>成本單價 ≈ <b>{perUnit.toLocaleString('en-US', { maximumFractionDigits: 4 })} {form.currency}</b>（總投入 ÷ 數量）。報酬率用原幣計算。</>
-                : <>填了總投入成本就會算報酬率（成本單價 = 總投入 ÷ 數量）。同一檔不同時間買的，分開新增即可各自看報酬。</>}
+                ? <>成本單價 ≈ <b>{perUnit.toLocaleString('en-US', { maximumFractionDigits: 4 })} {form.currency}</b>（總投入 ÷ 數量）。</>
+                : <>同一檔不同時間買的，分開新增即可各自看報酬，明細會收在同一個大項下。</>}
             </p>
           </>
         )}
