@@ -61,9 +61,6 @@ export async function loadPrices(holdings) {
       for (const [sym, price] of Object.entries(j.tw_stock || {})) {
         out.prices[`tw_stock:${sym.toUpperCase()}`] = Number(price)
       }
-      for (const [sym, price] of Object.entries(j.us_stock || {})) {
-        out.prices[`us_stock:${sym.toUpperCase()}`] = Number(price)
-      }
       out.stockUpdatedAt = j.updatedAt || null
     }
   } catch {

@@ -1,15 +1,13 @@
 {
   "name": "net-worth-app",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "prices": "node scripts/fetch-prices.mjs",
-    "symbols": "node scripts/gen-symbols.mjs",
-    "data": "npm run prices && npm run symbols"
+    "data": "node scripts/gen-data.mjs"
   },
   "dependencies": {
     "dexie": "^4.0.8",

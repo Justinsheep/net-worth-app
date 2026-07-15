@@ -34,14 +34,9 @@ jobs:
       - name: Install deps
         run: npm install
 
-      - name: Fetch stock prices
-        run: node scripts/fetch-prices.mjs
-        # 抓價失敗（例如 Yahoo 暫時掛掉）不擋部署，就用手動填的價
-        continue-on-error: true
-
-      - name: Generate symbol list
-        run: node scripts/gen-symbols.mjs
-        # 清單抓不到不擋部署，代號欄會退回純手打
+      - name: Generate data (TW prices + symbol lists)
+        run: node scripts/gen-data.mjs
+        # 抓不到不擋部署：台股價退回手動填、代號欄退回純手打
         continue-on-error: true
 
       - name: Build

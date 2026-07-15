@@ -15,7 +15,6 @@ const blank = {
 
 const SYMBOL_HINT = {
   tw_stock: '打代號或名稱搜尋，例：0050',
-  us_stock: '例：AAPL',
   crypto: '打代號或名稱搜尋，例：BTC',
   cash: '',
   debt: '',

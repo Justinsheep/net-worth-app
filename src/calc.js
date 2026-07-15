@@ -1,7 +1,6 @@
 // 資產分類定義。category 用字串，未來加「黃金 / 基金 / 美債」只要在這裡多一列。
 export const CATEGORIES = [
   { key: 'tw_stock', label: '台股', defaultCurrency: 'TWD', color: '#2F6FB2' },
-  { key: 'us_stock', label: '美股', defaultCurrency: 'USD', color: '#7A5AF0' },
   { key: 'crypto', label: '加密貨幣', defaultCurrency: 'USD', color: '#E0912B' },
   { key: 'cash', label: '現金 / 外幣', defaultCurrency: 'TWD', color: '#0F9D74' },
   { key: 'debt', label: '負債', defaultCurrency: 'TWD', color: '#C2402E' },
