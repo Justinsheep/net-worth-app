@@ -1,8 +1,9 @@
 // 一次產生 symbols.json（代號清單）和 prices.json（台股收盤價）。
 // 用法：node scripts/gen-data.mjs（或 npm run data）
-// 台股：證交所(上市) + 櫃買(上櫃) OpenAPI 的「整批」資料，一次拿到全部代號、名稱、收盤價，
-//       所以不需要 watchlist——任何台股/ETF 都會有價（每日收盤價）。
-// 加密貨幣：Binance USDT 交易對清單（價格由前端即時抓，這裡只做搜尋清單）。
+// 台股主來源：證交所「每日收盤行情」MI_INDEX(type=ALL)，含股票 + ETF 的代號/名稱/收盤價。
+//   備援：STOCK_DAY_ALL（僅個股）、櫃買 TPEx（上櫃）。
+// 所以不需要 watchlist——任何台股/ETF 都會有價（每日收盤價）。
+// 加密貨幣：Binance USDT 交易對清單（價格由前端即時抓）。
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -20,6 +21,8 @@ const num = (v) => {
   return Number.isFinite(n) ? n : null
 }
 
+const isTwCode = (c) => /^\d{4,6}[A-Z]?$/.test(c)
+
 async function twData() {
   const symbols = []
   const prices = {}
@@ -27,7 +30,7 @@ async function twData() {
   const add = (code, name, price) => {
     code = String(code || '').trim()
     name = String(name || '').trim()
-    if (!code) return
+    if (!isTwCode(code)) return
     if (name && !seen.has(code)) {
       seen.add(code)
       symbols.push({ code, name })
@@ -35,27 +38,59 @@ async function twData() {
     if (price != null) prices[code] = price
   }
 
-  // 上市（TSE）：整批日成交，含代號 / 名稱 / 收盤價
+  // 主來源：MI_INDEX（每日收盤行情，含股票 + ETF）。往前找最近有資料的交易日。
+  let miCount = 0
   try {
-    const arr = await getJson('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL')
-    for (const r of arr) add(r.Code ?? r.code, r.Name ?? r.name, num(r.ClosingPrice ?? r.closingPrice))
-    console.log('上市：', arr.length, '筆')
+    let data = null
+    for (let i = 0; i < 8; i++) {
+      const d = new Date(Date.now() - i * 86400000)
+      const ymd = d.toISOString().slice(0, 10).replace(/-/g, '')
+      try {
+        const j = await getJson(`https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=${ymd}&type=ALL`)
+        if (j && j.stat === 'OK' && Array.isArray(j.tables)) { data = j; break }
+      } catch { /* 換前一天 */ }
+    }
+    if (data) {
+      for (const t of data.tables || []) {
+        const f = t.fields || []
+        const ci = f.findIndex((x) => String(x).includes('證券代號'))
+        const ni = f.findIndex((x) => String(x).includes('證券名稱'))
+        const pi = f.findIndex((x) => String(x).includes('收盤價'))
+        if (ci === -1 || pi === -1) continue
+        for (const row of t.data || []) {
+          add(row[ci], ni >= 0 ? row[ni] : '', num(row[pi]))
+          if (num(row[pi]) != null) miCount++
+        }
+      }
+    }
+    console.log('MI_INDEX 收盤價：', miCount, '筆')
   } catch (e) {
-    console.warn('上市抓取失敗：', e.message)
+    console.warn('MI_INDEX 失敗：', e.message)
   }
 
-  // 上櫃（TPEx）：盡力而為，欄位名視 API 而定
+  // 備援：STOCK_DAY_ALL（僅個股）——補名稱/價格，MI_INDEX 成功時多半已涵蓋
+  if (miCount === 0) {
+    try {
+      const arr = await getJson('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL')
+      for (const r of arr) add(r.Code ?? r.code, r.Name ?? r.name, num(r.ClosingPrice ?? r.closingPrice))
+      console.log('STOCK_DAY_ALL 備援：', arr.length, '筆')
+    } catch (e) {
+      console.warn('STOCK_DAY_ALL 失敗：', e.message)
+    }
+  }
+
+  // 上櫃 TPEx（盡力而為）
   try {
     const arr = await getJson('https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes')
     for (const r of arr)
       add(
-        r.SecuritiesCompanyCode ?? r.Code ?? r.code ?? r['證券代號'],
-        r.CompanyName ?? r.Name ?? r.name ?? r['證券名稱'],
-        num(r.Close ?? r.ClosingPrice ?? r.close ?? r['收盤'])
+        r.SecuritiesCompanyCode ?? r.Code ?? r.code,
+        r.CompanyName ?? r.Name ?? r.name,
+        num(r.Close ?? r.ClosingPrice ?? r.close)
       )
-    console.log('上櫃：', arr.length, '筆')
+    console.log('上櫃 TPEx：', arr.length, '筆')
   } catch (e) {
-    console.warn('上櫃抓取失敗：', e.message)
+    console.warn('上櫃 TPEx 失敗：', e.message)
   }
 
   symbols.sort((a, b) => a.code.localeCompare(b.code))
@@ -86,7 +121,7 @@ async function cryptoSymbols() {
     }
     console.log('加密貨幣：', out.length, '種')
   } catch (e) {
-    console.warn('加密貨幣清單抓取失敗：', e.message)
+    console.warn('加密貨幣清單失敗：', e.message)
   }
   out.sort((a, b) => a.code.localeCompare(b.code))
   return out

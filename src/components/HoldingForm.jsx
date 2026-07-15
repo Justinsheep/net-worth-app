@@ -87,25 +87,32 @@ export default function HoldingForm({ editing, onSave, onClose }) {
           </select>
         </label>
 
-        <div className="field-row">
-          <label className="field">
-            <span>代號{!cashLike ? '（用來抓報價）' : '（選填）'}</span>
-            {HAS_SEARCH[form.category] ? (
-              <SymbolSearch
-                category={form.category}
-                value={form.symbol}
-                onPick={pickSymbol}
-                placeholder={SYMBOL_HINT[form.category]}
-              />
-            ) : (
-              <input value={form.symbol} onChange={(e) => set('symbol', e.target.value)} placeholder={SYMBOL_HINT[form.category] || ''} />
-            )}
-          </label>
+        {cashLike ? (
           <label className="field">
             <span>名稱</span>
-            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="選代號會自動帶入，可自己改" />
+            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="玉山活存 / 房貸 / 現金" />
           </label>
-        </div>
+        ) : (
+          <div className="field-row">
+            <label className="field">
+              <span>代號（用來抓報價）</span>
+              {HAS_SEARCH[form.category] ? (
+                <SymbolSearch
+                  category={form.category}
+                  value={form.symbol}
+                  onPick={pickSymbol}
+                  placeholder={SYMBOL_HINT[form.category]}
+                />
+              ) : (
+                <input value={form.symbol} onChange={(e) => set('symbol', e.target.value)} placeholder={SYMBOL_HINT[form.category] || ''} />
+              )}
+            </label>
+            <label className="field">
+              <span>名稱</span>
+              <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="選代號會自動帶入，可自己改" />
+            </label>
+          </div>
+        )}
 
         <div className="field-row">
           <label className="field">
