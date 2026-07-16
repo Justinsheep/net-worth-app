@@ -5,11 +5,12 @@ import { store } from './store'
 import { summarize, summarizePnl, fmtTwd, fmtPct } from './calc'
 import { loadPrices } from './prices'
 import { supabase, supabaseEnabled } from './supabase'
-import { syncNow } from './sync'
+import { syncNow, wipeCloud } from './sync'
 import AllocationChart from './components/AllocationChart'
 import TrendChart from './components/TrendChart'
 import HoldingForm from './components/HoldingForm'
 import HoldingsTable from './components/HoldingsTable'
+import ConfirmClearModal from './components/ConfirmClearModal'
 
 const REFRESH_MS = 60_000 // 每 60 秒自動更新一次報價
 
@@ -37,6 +38,8 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [clearOpen, setClearOpen] = useState(false)
+  const [clearing, setClearing] = useState(false)
 
   // 讀取上次存的匯率與自動/手動設定
   useEffect(() => {
@@ -169,6 +172,20 @@ export default function App() {
     }
     reader.readAsText(file)
     e.target.value = ''
+  }
+
+  function openClear() {
+    setClearOpen(true)
+  }
+  async function confirmClear() {
+    setClearing(true)
+    try {
+      await store.clearAll()
+      if (session) await wipeCloud(session.user.id)
+    } finally {
+      setClearing(false)
+      setClearOpen(false)
+    }
   }
 
   const updatedTime = priceMeta.updatedAt
@@ -322,6 +339,17 @@ export default function App() {
               </div>
             </section>
 
+            <section className="panel danger-panel">
+              <h3 className="panel-title">危險區域</h3>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">清空所有紀錄</div>
+                  <div className="settings-row-sub">刪除全部持倉、負債與走勢紀錄，無法復原。會先自動幫你下載一份備份。</div>
+                </div>
+                <button className="btn danger" onClick={openClear}>清空所有紀錄</button>
+              </div>
+            </section>
+
             <p className="footer-note settings-footnote">
               資料存在這台裝置的瀏覽器裡（IndexedDB）{session ? '，並與雲端同步。' : '。'}
             </p>
@@ -342,6 +370,9 @@ export default function App() {
 
       {formOpen && (
         <HoldingForm editing={editing} onSave={save} onClose={() => { setFormOpen(false); setEditing(null) }} />
+      )}
+      {clearOpen && (
+        <ConfirmClearModal busy={clearing} onConfirm={confirmClear} onExport={exportData} onClose={() => setClearOpen(false)} />
       )}
     </div>
   )

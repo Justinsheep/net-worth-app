@@ -60,4 +60,11 @@ export const store = {
       if (data.settings?.length) await db.settings.bulkPut(data.settings)
     })
   },
+
+  // 清空所有持倉與走勢紀錄（本機），設定（匯率偏好等）保留。雲端同步的清空由呼叫端另外處理。
+  async clearAll() {
+    await db.transaction('rw', db.holdings, db.snapshots, async () => {
+      await Promise.all([db.holdings.clear(), db.snapshots.clear()])
+    })
+  },
 }

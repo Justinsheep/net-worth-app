@@ -321,3 +321,11 @@ body {
   border-radius: 999px; padding: 6px 13px; cursor: pointer;
 }
 .seg-inline button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+
+/* ---------- Danger zone (clear all data) ---------- */
+.btn.danger { background: var(--neg); color: #fff; }
+.btn.danger:hover { filter: brightness(1.05); }
+.btn.danger:disabled { opacity: 0.5; cursor: default; }
+.danger-panel { border-color: #f3d6d1; }
+.danger-text { color: var(--neg); background: var(--neg-soft); border-radius: 10px; padding: 10px 12px; line-height: 1.7; }
+.export-btn { width: 100%; margin-bottom: 12px; }

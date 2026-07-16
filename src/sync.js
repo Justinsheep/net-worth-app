@@ -21,6 +21,16 @@ export async function syncNow(userId) {
   }
 }
 
+// 清空這個帳號在雲端的所有資料（holdings + snapshots）。
+// 用在「清空所有紀錄」功能——本機清空後，若不順便清雲端，下次同步會把雲端的舊資料拉回來。
+export async function wipeCloud(userId) {
+  if (!supabase || !userId) return
+  await Promise.all([
+    supabase.from('holdings').delete().eq('user_id', userId),
+    supabase.from('snapshots').delete().eq('user_id', userId),
+  ])
+}
+
 async function syncTable(name, table, userId, hasDelete) {
   const { data: remote, error } = await supabase.from(name).select('*').eq('user_id', userId)
   if (error) throw error
