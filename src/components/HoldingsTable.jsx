@@ -229,8 +229,11 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
         const isOpen = catOpen[g.key] !== false // 預設展開
 
         let body
+        let itemCount
         if (g.key === 'debt') {
-          body = groupDebtBySubtype(g.items).map(([subKey, items]) => (
+          const subGroups = groupDebtBySubtype(g.items)
+          itemCount = subGroups.length
+          body = subGroups.map(([subKey, items]) => (
             <BucketGroup
               key={'debt:' + subKey}
               groupKey={'debt:' + subKey}
@@ -242,7 +245,9 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
             />
           ))
         } else if (g.key === 'bank') {
-          body = groupByBank(g.items).map(([bankKey, items]) => (
+          const bankGroups = groupByBank(g.items)
+          itemCount = bankGroups.length
+          body = bankGroups.map(([bankKey, items]) => (
             <BucketGroup
               key={'bank:' + bankKey}
               groupKey={'bank:' + bankKey}
@@ -256,12 +261,14 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
         } else {
           const cashItems = g.items.filter((h) => holdingIsCashLike(h))
           const pricedItems = g.items.filter((h) => !holdingIsCashLike(h))
+          const symGroups = groupBySymbol(pricedItems)
+          itemCount = cashItems.length + symGroups.length
           body = (
             <>
               {cashItems.map((h) => (
                 <PlainRow key={h.id} h={h} fx={fx} prices={prices} fxRates={fxRates} onEdit={onEdit} onDelete={onDelete} />
               ))}
-              {groupBySymbol(pricedItems).map(([symKey, lots]) => (
+              {symGroups.map(([symKey, lots]) => (
                 <PricedGroup
                   key={g.key + ':' + symKey}
                   g={g} lots={lots} symKey={symKey}
@@ -280,7 +287,7 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
                 <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>
                 <span className="dot" style={{ background: catColor(g.key) }} />
                 <span className="group-head-label">{catLabel(g.key)}</span>
-                <span className="group-head-count">{g.items.length} 筆</span>
+                <span className="group-head-count">{itemCount} 項</span>
                 <span className="group-head-total">{fmtTwd(subtotal)}</span>
               </button>
               <button
