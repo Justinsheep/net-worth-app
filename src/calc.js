@@ -3,6 +3,7 @@ export const CATEGORIES = [
   { key: 'tw_stock', label: '台股', defaultCurrency: 'TWD', color: '#2F80B4' },
   { key: 'crypto', label: '加密貨幣', defaultCurrency: 'USD', color: '#E19A3C' },
   { key: 'cash', label: '現金 / 外幣', defaultCurrency: 'TWD', color: '#12A67A' },
+  { key: 'bank', label: '銀行', defaultCurrency: 'TWD', color: '#5B78E5' },
   { key: 'debt', label: '負債', defaultCurrency: 'TWD', color: '#E05B5B' },
 ]
 
@@ -10,8 +11,8 @@ export const catLabel = (k) => CATEGORIES.find((c) => c.key === k)?.label ?? k
 export const catColor = (k) => CATEGORIES.find((c) => c.key === k)?.color ?? '#888'
 export const catDefaultCurrency = (k) => CATEGORIES.find((c) => c.key === k)?.defaultCurrency ?? 'TWD'
 
-// 現金與負債是「一筆金額」，不需要數量×單價，也沒有成本/報酬概念
-export const isCashLike = (k) => k === 'cash' || k === 'debt'
+// 現金、銀行、負債是「一筆金額」，不需要數量×單價，也沒有成本/報酬概念
+export const isCashLike = (k) => k === 'cash' || k === 'bank' || k === 'debt'
 
 // 報價對照表的 key：分類:代號（代號轉大寫）
 export const priceKey = (h) => `${h.category}:${String(h.symbol || '').toUpperCase()}`

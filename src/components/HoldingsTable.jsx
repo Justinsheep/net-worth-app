@@ -5,6 +5,7 @@ import {
   lotPnlTwd, lotRoi, symbolAgg,
   fmtTwd, fmtNum, fmtPct, fmtSignedTwd,
 } from '../calc'
+import { IconGlyph } from '../icons'
 
 function groupBySymbol(items) {
   const map = new Map()
@@ -17,6 +18,14 @@ function groupBySymbol(items) {
     arr.sort((a, b) => String(a.buyDate || '').localeCompare(String(b.buyDate || '')))
   }
   return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+}
+
+function IconChip({ h }) {
+  return (
+    <span className="icon-chip" style={{ '--chip-c': catColor(h.category) }}>
+      <IconGlyph name={h.icon} category={h.category} />
+    </span>
+  )
 }
 
 // 展開後的單筆明細列
@@ -51,14 +60,18 @@ function LotRow({ h, fx, prices, onEdit, onDelete }) {
   )
 }
 
-// 現金/負債：單筆一列，不需要大項
+// 現金/銀行/負債：單筆一列
 function PlainRow({ h, fx, prices, onEdit, onDelete }) {
   const v = holdingValueTwd(h, fx, prices)
   return (
     <div className="row">
+      <IconChip h={h} />
       <div className="row-main">
         <div className="row-name">{h.name}</div>
-        <div className="row-sub">{fmtNum(h.quantity)} {h.currency}</div>
+        <div className="row-sub">
+          {h.bankName ? <span className="bank-name">{h.bankName}　</span> : null}
+          {fmtNum(h.quantity)} {h.currency}
+        </div>
       </div>
       <div className={'row-value' + (v < 0 ? ' neg' : '')}>{fmtTwd(v)}</div>
       <div className="row-actions">
@@ -104,6 +117,7 @@ export default function HoldingsTable({ holdings, fx, prices, onEdit, onDelete }
                     <div className="symgroup" key={key}>
                       <button className="agg-row" onClick={() => toggle(key)}>
                         <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>
+                        <IconChip h={lots[0]} />
                         <div className="agg-main">
                           <div className="row-name">
                             {lots[0].name}

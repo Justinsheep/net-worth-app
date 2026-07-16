@@ -1,23 +1,25 @@
 import { useState, useEffect } from 'react'
 import { CATEGORIES, isCashLike, catDefaultCurrency } from '../calc'
 import SymbolSearch from './SymbolSearch'
+import BankSearch from './BankSearch'
+import IconPicker from './IconPicker'
 
 const blank = {
   category: 'tw_stock',
   name: '',
   symbol: '',
+  bankName: '',
   quantity: '',
   price: '',
   currency: 'TWD',
   totalCost: '',
   buyDate: '',
+  icon: '',
 }
 
 const SYMBOL_HINT = {
   tw_stock: '打代號或名稱搜尋，例：0050',
   crypto: '打代號或名稱搜尋，例：BTC',
-  cash: '',
-  debt: '',
 }
 
 const HAS_SEARCH = { tw_stock: true, crypto: true }
@@ -31,11 +33,13 @@ export default function HoldingForm({ editing, onSave, onClose }) {
         category: editing.category,
         name: editing.name ?? '',
         symbol: editing.symbol ?? '',
+        bankName: editing.bankName ?? '',
         quantity: editing.quantity ?? '',
         price: editing.price ?? '',
         currency: editing.currency ?? catDefaultCurrency(editing.category),
         totalCost: editing.totalCost ?? '',
         buyDate: editing.buyDate ?? '',
+        icon: editing.icon ?? '',
       })
     } else {
       setForm(blank)
@@ -43,12 +47,12 @@ export default function HoldingForm({ editing, onSave, onClose }) {
   }, [editing])
 
   const cashLike = isCashLike(form.category)
+  const isBank = form.category === 'bank'
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const changeCategory = (cat) =>
     setForm((f) => ({ ...f, category: cat, currency: catDefaultCurrency(cat) }))
 
-  // 從搜尋清單選代號：帶入代號；有名稱就一併帶入（仍可自己改）
   function pickSymbol(code, name) {
     setForm((f) => ({ ...f, symbol: code, ...(name != null ? { name } : {}) }))
   }
@@ -60,13 +64,15 @@ export default function HoldingForm({ editing, onSave, onClose }) {
   function submit() {
     onSave({
       category: form.category,
-      name: form.name.trim() || form.symbol.trim() || '未命名',
+      name: form.name.trim() || form.symbol.trim() || form.bankName.trim() || '未命名',
       symbol: form.symbol.trim(),
+      bankName: isBank ? form.bankName.trim() : undefined,
       currency: form.currency,
       quantity: Number(form.quantity) || 0,
       price: cashLike ? 1 : Number(form.price) || 0,
       totalCost: cashLike ? undefined : (Number(form.totalCost) || undefined),
       buyDate: cashLike ? undefined : (form.buyDate || undefined),
+      icon: form.icon || undefined,
     })
   }
 
@@ -87,10 +93,17 @@ export default function HoldingForm({ editing, onSave, onClose }) {
           </select>
         </label>
 
+        {isBank && (
+          <label className="field">
+            <span>銀行</span>
+            <BankSearch value={form.bankName} onChange={(v) => set('bankName', v)} placeholder="打名稱搜尋，例：國泰世華" />
+          </label>
+        )}
+
         {cashLike ? (
           <label className="field">
             <span>名稱</span>
-            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="玉山活存 / 房貸 / 現金" />
+            <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={isBank ? '薪轉戶 / 活存 / 定存' : '玉山活存 / 房貸 / 現金'} />
           </label>
         ) : (
           <div className="field-row">
@@ -153,6 +166,11 @@ export default function HoldingForm({ editing, onSave, onClose }) {
             </p>
           </>
         )}
+
+        <label className="field">
+          <span>圖示（選填，不選就用分類預設）</span>
+          <IconPicker value={form.icon} category={form.category} onChange={(v) => set('icon', v)} />
+        </label>
 
         <div className="modal-actions">
           <button className="btn ghost" onClick={onClose}>取消</button>
