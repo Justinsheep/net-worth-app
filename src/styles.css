@@ -366,6 +366,10 @@ body {
 .trash-bulk-actions { display: flex; gap: 8px; }
 .trash-row { gap: 10px; }
 .trash-row input[type="checkbox"] { flex: none; width: 16px; height: 16px; accent-color: var(--accent); }
+@media (max-width: 480px) {
+  .trash-row { flex-wrap: wrap; }
+  .trash-row .row-actions { flex: 1 0 100%; justify-content: flex-end; margin-top: 6px; gap: 8px; }
+}
 
 /* ---------- Locked icon (加碼 quick-add) ---------- */
 .icon-locked { display: flex; align-items: center; gap: 10px; }
