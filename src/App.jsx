@@ -46,6 +46,7 @@ export default function App() {
   const [template, setTemplate] = useState(null)
   const [clearOpen, setClearOpen] = useState(false)
   const [clearing, setClearing] = useState(false)
+  const [trashOpen, setTrashOpen] = useState(false)
 
   // 讀取上次存的匯率與自動/手動設定
   useEffect(() => {
@@ -380,12 +381,17 @@ export default function App() {
 
             <section className="panel">
               <h3 className="panel-title">已刪除</h3>
-              <DeletedPanel
-                items={deletedHoldings}
-                fx={fx} prices={prices} fxRates={fxRates}
-                onRestore={restoreHoldings}
-                onPurge={purgeHoldings}
-              />
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">垃圾桶</div>
+                  <div className="settings-row-sub">
+                    {deletedHoldings.length > 0 ? `目前有 ${deletedHoldings.length} 筆，可以復原或永久刪除` : '目前是空的'}
+                  </div>
+                </div>
+                <button className="btn ghost" onClick={() => setTrashOpen(true)}>
+                  查看已刪除{deletedHoldings.length > 0 ? `（${deletedHoldings.length}）` : ''}
+                </button>
+              </div>
             </section>
 
             <section className="panel danger-panel">
@@ -422,6 +428,23 @@ export default function App() {
       )}
       {clearOpen && (
         <ConfirmClearModal busy={clearing} onConfirm={confirmClear} onExport={exportData} onClose={() => setClearOpen(false)} />
+      )}
+      {trashOpen && (
+        <div className="modal-backdrop" onClick={() => setTrashOpen(false)}>
+          <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <span />
+              <h2>已刪除</h2>
+              <button className="icon-btn" onClick={() => setTrashOpen(false)} aria-label="關閉">✕</button>
+            </div>
+            <DeletedPanel
+              items={deletedHoldings}
+              fx={fx} prices={prices} fxRates={fxRates}
+              onRestore={restoreHoldings}
+              onPurge={purgeHoldings}
+            />
+          </div>
+        </div>
       )}
     </div>
   )
