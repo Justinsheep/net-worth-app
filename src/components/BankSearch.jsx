@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { TW_BANKS } from '../banks'
 
-export default function BankSearch({ value, onChange, placeholder }) {
+export default function BankSearch({ value, onChange, onSelect, placeholder, autoFocus }) {
   const [open, setOpen] = useState(false)
   const [matches, setMatches] = useState(TW_BANKS)
   const boxRef = useRef(null)
@@ -23,6 +23,7 @@ export default function BankSearch({ value, onChange, placeholder }) {
 
   function choose(name) {
     onChange(name)
+    onSelect?.(name)
     setOpen(false)
   }
 
@@ -34,6 +35,7 @@ export default function BankSearch({ value, onChange, placeholder }) {
         onFocus={() => { setMatches(value.trim() ? TW_BANKS.filter((b) => b.includes(value.trim())) : TW_BANKS); setOpen(true) }}
         placeholder={placeholder}
         autoComplete="off"
+        autoFocus={autoFocus}
       />
       {open && matches.length > 0 && (
         <ul className="symsearch-list">

@@ -1,6 +1,6 @@
 import { ICON_LIST, IconGlyph } from '../icons'
 
-export default function IconPicker({ value, category, onChange }) {
+export default function IconPicker({ value, category, subtype, onChange }) {
   return (
     <div className="icon-picker">
       {ICON_LIST.map(([key, label]) => (
@@ -12,7 +12,7 @@ export default function IconPicker({ value, category, onChange }) {
           title={label}
           aria-label={label}
         >
-          <IconGlyph name={key} category={category} />
+          <IconGlyph name={key} category={category} subtype={subtype} />
         </button>
       ))}
     </div>

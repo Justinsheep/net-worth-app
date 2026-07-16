@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { loadSymbols, searchSymbols } from '../symbols'
+import { isEtfCode } from '../calc'
 
 // 哪些分類有搜尋清單
 const LIST_KEY = { tw_stock: 'tw_stock', crypto: 'crypto' }
 
-export default function SymbolSearch({ category, value, onPick, placeholder }) {
+export default function SymbolSearch({ category, subtype, value, onPick, placeholder }) {
   const listKey = LIST_KEY[category]
   const [data, setData] = useState(null)
   const [open, setOpen] = useState(false)
@@ -23,10 +24,16 @@ export default function SymbolSearch({ category, value, onPick, placeholder }) {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
+  // 台股依子分類（個股/ETF）篩選；其他分類不篩選
+  function applySubtypeFilter(list) {
+    if (category !== 'tw_stock' || !subtype) return list
+    return list.filter((it) => (subtype === 'etf' ? isEtfCode(it.code) : !isEtfCode(it.code)))
+  }
+
   function onType(v) {
     onPick(v, null) // 只更新代號，不動名稱
     if (data && listKey) {
-      const m = searchSymbols(data[listKey] || [], v)
+      const m = searchSymbols(applySubtypeFilter(data[listKey] || []), v)
       setMatches(m)
       setOpen(m.length > 0)
     }

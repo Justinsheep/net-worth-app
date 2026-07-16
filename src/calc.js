@@ -11,63 +11,100 @@ export const catLabel = (k) => CATEGORIES.find((c) => c.key === k)?.label ?? k
 export const catColor = (k) => CATEGORIES.find((c) => c.key === k)?.color ?? '#888'
 export const catDefaultCurrency = (k) => CATEGORIES.find((c) => c.key === k)?.defaultCurrency ?? 'TWD'
 
-// 現金、銀行、負債是「一筆金額」，不需要數量×單價，也沒有成本/報酬概念
+// 台股 ETF 代碼判斷（台灣 ETF 代碼慣例以「00」開頭，如 0050、00631L）。
+// 這是代碼規則判斷，不是完美的官方分類，但足夠用來篩選搜尋清單。
+export const isEtfCode = (code) => /^00/.test(String(code || '').trim())
+
+// 分類層級的「現金型」：金額直接輸入，不需要數量×單價，也沒有成本/報酬概念。
 export const isCashLike = (k) => k === 'cash' || k === 'bank' || k === 'debt'
+
+// 單筆層級的「現金型」：多了「加密貨幣─交易所」這個特例——
+// 那是放在交易所拿去打合約/網格的資金，用法跟現金一樣（填金額，不綁定某顆幣的價格）。
+export const holdingIsCashLike = (h) =>
+  isCashLike(h.category) || (h.category === 'crypto' && h.subtype === 'exchange')
+
+// 穩定幣（目前僅 USDT）視為約當現金：固定 1:1，不追蹤成本/報酬率
+const STABLECOINS = ['USDT']
+export const isStablecoin = (h) =>
+  h.category === 'crypto' && h.subtype !== 'exchange' && STABLECOINS.includes(String(h.symbol || '').toUpperCase())
+
+// 市場報價的幣別是「固定的」，由資料來源決定，跟使用者填的成本幣別無關：
+// 台股報價來自證交所（台幣），加密貨幣報價來自 Binance（美元）。
+export const QUOTE_CURRENCY = { tw_stock: 'TWD', crypto: 'USD' }
+export const quoteCurrencyOf = (category) => QUOTE_CURRENCY[category] || 'TWD'
 
 // 報價對照表的 key：分類:代號（代號轉大寫）
 export const priceKey = (h) => `${h.category}:${String(h.symbol || '').toUpperCase()}`
 
 export const hasLivePrice = (h, prices) =>
-  !isCashLike(h.category) && prices && prices[priceKey(h)] != null
+  !holdingIsCashLike(h) && prices && prices[priceKey(h)] != null
 
-// 這一筆實際使用的單價：有自動報價就用它，否則退回手動填的價
+// 這一筆實際使用的單價（單位是該分類的報價幣別）：
+// 有自動報價就用它，否則退回手動填的價
 export function effectiveUnitPrice(h, prices) {
-  if (isCashLike(h.category)) return 1
+  if (holdingIsCashLike(h)) return 1
+  if (isStablecoin(h)) return 1
   const live = prices ? prices[priceKey(h)] : null
   if (live != null && !Number.isNaN(Number(live))) return Number(live)
   return Number(h.price || 0)
 }
 
-// 單筆換算成台幣（負債為負值）
-export function holdingValueTwd(h, fx, prices) {
-  const native = isCashLike(h.category)
-    ? Number(h.quantity || 0)
-    : Number(h.quantity || 0) * effectiveUnitPrice(h, prices)
-  const rate = h.currency === 'USD' ? Number(fx || 0) : 1
-  const sign = h.category === 'debt' ? -1 : 1
-  return native * rate * sign
+// 把任意幣別的金額換成台幣的匯率。優先用完整匯率表（fxRates，來自 open.er-api，
+// 支援日圓/歐元/人民幣等多幣別）；表還沒抓到時，USD 退回單一的 fx 數字。
+export function rateToTwd(currency, fx, fxRates) {
+  if (currency === 'TWD') return 1
+  if (fxRates && fxRates.TWD && fxRates[currency]) return fxRates.TWD / fxRates[currency]
+  if (currency === 'USD') return Number(fx || 0)
+  return 0 // 匯率表還沒載入、且不是 USD：暫時無法換算，等下次抓到匯率會自動修正
 }
 
-// ---------- 成本 / 損益（原幣計算）----------
-// 每筆記錄「總投入金額」totalCost，成本單價 = totalCost / 數量
+// 單筆現值換算成台幣。
+export function holdingValueTwd(h, fx, prices, fxRates) {
+  if (holdingIsCashLike(h)) {
+    const native = Number(h.quantity || 0)
+    const rate = rateToTwd(h.currency, fx, fxRates)
+    const sign = h.category === 'debt' ? -1 : 1
+    return native * rate * sign
+  }
+  const native = Number(h.quantity || 0) * effectiveUnitPrice(h, prices)
+  const rate = quoteCurrencyOf(h.category) === 'USD' ? Number(fx || 0) : 1
+  return native * rate
+}
+
+// ---------- 成本 / 損益（統一用台幣比較）----------
 export const lotCost = (h) => Number(h.totalCost || 0)
 export const hasCost = (h) =>
-  !isCashLike(h.category) && lotCost(h) > 0 && Number(h.quantity || 0) > 0
+  !holdingIsCashLike(h) && !isStablecoin(h) && lotCost(h) > 0 && Number(h.quantity || 0) > 0
 export const costPerUnit = (h) => {
   const q = Number(h.quantity || 0)
   return q ? lotCost(h) / q : 0
 }
-// 原幣現值（不含匯率、不含負債正負）
-export function lotValueNative(h, prices) {
-  return Number(h.quantity || 0) * effectiveUnitPrice(h, prices)
+
+// 成本換算成台幣：用使用者填的「成本幣別」(h.currency，僅 TWD/USD) 換算
+export function lotCostTwd(h, fx) {
+  if (!hasCost(h)) return 0
+  const rate = h.currency === 'USD' ? Number(fx || 0) : 1
+  return lotCost(h) * rate
 }
-export function lotPnlNative(h, prices) {
+
+// 單筆損益／報酬率（台幣基準）
+export function lotPnlTwd(h, fx, prices) {
   if (!hasCost(h)) return null
-  return lotValueNative(h, prices) - lotCost(h)
+  return holdingValueTwd(h, fx, prices) - lotCostTwd(h, fx)
 }
-export function lotRoi(h, prices) {
+export function lotRoi(h, fx, prices) {
   if (!hasCost(h)) return null
-  const c = lotCost(h)
-  return c ? (lotValueNative(h, prices) - c) / c : null
+  const c = lotCostTwd(h, fx)
+  return c ? lotPnlTwd(h, fx, prices) / c : null
 }
 
 // 彙總：總資產、總負債、淨值，各類別（僅資產）金額
-export function summarize(holdings, fx, prices) {
+export function summarize(holdings, fx, prices, fxRates) {
   let totalAsset = 0
   let totalDebt = 0
   const byCat = {}
   for (const h of holdings) {
-    const v = holdingValueTwd(h, fx, prices)
+    const v = holdingValueTwd(h, fx, prices, fxRates)
     if (h.category === 'debt') totalDebt += Math.abs(v)
     else {
       totalAsset += v
@@ -77,18 +114,37 @@ export function summarize(holdings, fx, prices) {
   return { totalAsset, totalDebt, netWorth: totalAsset - totalDebt, byCat }
 }
 
-// 未實現損益（只計有填成本的部位，換算成台幣加總）
+// 未實現損益（只計有填成本的部位，台幣加總）
 export function summarizePnl(holdings, fx, prices) {
   let costTwd = 0
   let valueTwd = 0
   for (const h of holdings) {
     if (!hasCost(h)) continue
-    const rate = h.currency === 'USD' ? Number(fx || 0) : 1
-    costTwd += lotCost(h) * rate
-    valueTwd += lotValueNative(h, prices) * rate
+    costTwd += lotCostTwd(h, fx)
+    valueTwd += holdingValueTwd(h, fx, prices)
   }
   const pnlTwd = valueTwd - costTwd
   return { costTwd, valueTwd, pnlTwd, roi: costTwd ? pnlTwd / costTwd : null, hasAny: costTwd > 0 }
+}
+
+// 同一檔（多筆買入）的彙總
+export function symbolAgg(lots, fx, prices) {
+  let qty = 0
+  let valueTwd = 0
+  let costTwd = 0
+  let pnlTwd = 0
+  let anyCost = false
+  for (const h of lots) {
+    qty += Number(h.quantity || 0)
+    valueTwd += holdingValueTwd(h, fx, prices)
+    if (hasCost(h)) {
+      anyCost = true
+      costTwd += lotCostTwd(h, fx)
+      pnlTwd += lotPnlTwd(h, fx, prices)
+    }
+  }
+  const roi = anyCost && costTwd ? pnlTwd / costTwd : null
+  return { qty, valueTwd, costTwd, pnlTwd: anyCost ? pnlTwd : null, roi, anyCost }
 }
 
 // ---------- 格式化 ----------
@@ -97,40 +153,5 @@ export const fmtNum = (n) =>
   Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 8 })
 export const fmtPct = (r) =>
   r == null ? '—' : (r >= 0 ? '+' : '-') + Math.abs(r * 100).toFixed(1) + '%'
-export function fmtSignedNative(n, currency) {
-  if (n == null) return '—'
-  const unit = currency === 'USD' ? '$' : 'NT$'
-  return (n >= 0 ? '+' : '-') + unit + Math.abs(Math.round(n)).toLocaleString('en-US')
-}
-
-// ---------- 大項彙總（第 6 版：可展開的持倉大項）----------
-// 單筆損益（台幣）
-export function lotPnlTwd(h, fx, prices) {
-  if (!hasCost(h)) return null
-  const rate = h.currency === 'USD' ? Number(fx || 0) : 1
-  return (lotValueNative(h, prices) - lotCost(h)) * rate
-}
-
-// 同一檔（多筆買入）的彙總
-export function symbolAgg(lots, fx, prices) {
-  let qty = 0
-  let valueTwd = 0
-  let costTwd = 0
-  let valueCostedTwd = 0
-  for (const h of lots) {
-    qty += Number(h.quantity || 0)
-    valueTwd += holdingValueTwd(h, fx, prices)
-    if (hasCost(h)) {
-      const rate = h.currency === 'USD' ? Number(fx || 0) : 1
-      costTwd += lotCost(h) * rate
-      valueCostedTwd += lotValueNative(h, prices) * rate
-    }
-  }
-  const anyCost = costTwd > 0
-  const pnlTwd = anyCost ? valueCostedTwd - costTwd : null
-  const roi = anyCost ? pnlTwd / costTwd : null
-  return { qty, valueTwd, costTwd, pnlTwd, roi, anyCost }
-}
-
 export const fmtSignedTwd = (n) =>
   n == null ? '—' : (n >= 0 ? '+' : '-') + 'NT$' + Math.abs(Math.round(n)).toLocaleString('en-US')

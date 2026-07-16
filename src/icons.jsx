@@ -28,6 +28,8 @@ export const ICON_DEFS = {
   clock: () => <P><circle cx="12" cy="12" r="9" opacity="0.16" /><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="M12 7v5.3l3.6 2" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></P>,
   goldbar: () => <P><path d="M6 8h12l2.5 8H3.5Z" opacity="0.18" /><path d="M6 8h12l2.5 8H3.5Z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /><path d="M8.3 8 6.6 16M15.7 8l1.7 8" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></P>,
   scale: () => <P><path d="M12 3v18M6 21h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /><path d="M12 5 5 9l1 4.5a5 5 0 0 0 4 0z" opacity="0.18" /><path d="M12 5 5 9l1 4.5a5 5 0 0 0 4 0z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /><path d="M12 5l7 4-1 4.5a5 5 0 0 1-4 0z" opacity="0.18" /><path d="M12 5l7 4-1 4.5a5 5 0 0 1-4 0z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /></P>,
+  car: () => <P><path d="M4.5 14.5 6 9.8a2 2 0 0 1 1.9-1.3h8.2A2 2 0 0 1 18 9.8l1.5 4.7" opacity="0.18" /><path d="M3.5 14.5h17v3.2a1 1 0 0 1-1 1H16a1 1 0 0 1-1-1V17H9v.7a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M4.5 14.5 6 9.8a2 2 0 0 1 1.9-1.3h8.2A2 2 0 0 1 18 9.8l1.5 4.7Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><circle cx="7" cy="14.8" r="1.3" /><circle cx="17" cy="14.8" r="1.3" /></P>,
+  cap: () => <P><path d="M12 5 21 9l-9 4-9-4Z" opacity="0.18" /><path d="M12 5 21 9l-9 4-9-4Z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /><path d="M6.5 11v4c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M21 9v5.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></P>,
 }
 
 // 顯示順序與中文標籤（用在挑選面板）
@@ -37,10 +39,10 @@ export const ICON_LIST = [
   ['chartUp', '上漲'], ['percent', '百分比'], ['calculator', '計算機'], ['house', '房屋'],
   ['shield', '保障'], ['star', '星星'], ['chest', '寶箱'], ['key', '鑰匙'],
   ['umbrella', '保險'], ['rocket', '成長'], ['target', '目標'], ['clock', '定存'],
-  ['goldbar', '金條'], ['scale', '天秤'],
+  ['goldbar', '金條'], ['scale', '天秤'], ['car', '車輛'], ['cap', '學業'],
 ]
 
-// 各分類沒有自選圖示時的預設圖示
+// 各分類（可含子分類）沒有自選圖示時的預設圖示
 export const DEFAULT_ICON = {
   tw_stock: 'chartUp',
   crypto: 'coin',
@@ -48,9 +50,24 @@ export const DEFAULT_ICON = {
   bank: 'bank',
   debt: 'scale',
 }
+const DEFAULT_ICON_BY_SUBTYPE = {
+  'crypto:exchange': 'safe',
+  'debt:mortgage': 'house',
+  'debt:car': 'car',
+  'debt:student': 'cap',
+  'debt:credit': 'card',
+  'debt:other': 'scale',
+}
 
-export function IconGlyph({ name, category, className }) {
-  const key = name && ICON_DEFS[name] ? name : (DEFAULT_ICON[category] || 'coin')
+export function defaultIconFor(category, subtype) {
+  if (subtype && DEFAULT_ICON_BY_SUBTYPE[`${category}:${subtype}`]) {
+    return DEFAULT_ICON_BY_SUBTYPE[`${category}:${subtype}`]
+  }
+  return DEFAULT_ICON[category] || 'coin'
+}
+
+export function IconGlyph({ name, category, subtype, className }) {
+  const key = name && ICON_DEFS[name] ? name : defaultIconFor(category, subtype)
   const Render = ICON_DEFS[key]
   return <span className={className}><Render /></span>
 }

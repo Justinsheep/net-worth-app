@@ -20,15 +20,17 @@ async function fetchCryptoPrice(symbol) {
 }
 
 export async function loadPrices(holdings) {
-  const out = { prices: {}, fxUsdTwd: null, stockUpdatedAt: null, errors: [] }
+  const out = { prices: {}, fxUsdTwd: null, fxRates: null, stockUpdatedAt: null, errors: [] }
 
-  // ---- 匯率 USD -> TWD ----
+  // ---- 匯率：一次抓回「相對 USD」的完整匯率表，可換算任何幣別 ----
   try {
     const res = await fetch(FX_URL)
     const j = await res.json()
     const twd = j?.rates?.TWD
-    if (twd) out.fxUsdTwd = Number(twd)
-    else throw new Error('回應中沒有 TWD')
+    if (twd) {
+      out.fxUsdTwd = Number(twd)
+      out.fxRates = j.rates
+    } else throw new Error('回應中沒有 TWD')
   } catch (e) {
     out.errors.push('匯率抓取失敗：' + e.message)
   }
@@ -41,13 +43,18 @@ export async function loadPrices(holdings) {
         .map((h) => String(h.symbol).toUpperCase())
     ),
   ]
-  if (cryptoSymbols.length) {
-    const results = await Promise.allSettled(cryptoSymbols.map((s) => fetchCryptoPrice(s)))
+  // USDT 是穩定幣，固定視為 1 美元，不用打 API（也沒有 USDTUSDT 這種交易對）
+  for (const s of cryptoSymbols) {
+    if (s === 'USDT') out.prices['crypto:USDT'] = 1
+  }
+  const toFetch = cryptoSymbols.filter((s) => s !== 'USDT')
+  if (toFetch.length) {
+    const results = await Promise.allSettled(toFetch.map((s) => fetchCryptoPrice(s)))
     results.forEach((r, i) => {
       if (r.status === 'fulfilled' && !Number.isNaN(r.value)) {
-        out.prices[`crypto:${cryptoSymbols[i]}`] = r.value
+        out.prices[`crypto:${toFetch[i]}`] = r.value
       } else {
-        out.errors.push(`加密貨幣 ${cryptoSymbols[i]} 抓取失敗`)
+        out.errors.push(`加密貨幣 ${toFetch[i]} 抓取失敗`)
       }
     })
   }

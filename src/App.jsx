@@ -30,6 +30,7 @@ export default function App() {
   const [trendMetric, setTrendMetric] = useState('net')
   const [session, setSession] = useState(null)
   const [fx, setFx] = useState(32)
+  const [fxRates, setFxRates] = useState(null)
   const [fxAuto, setFxAuto] = useState(true)
   const [prices, setPrices] = useState({})
   const [priceMeta, setPriceMeta] = useState({ updatedAt: null, stockUpdatedAt: null, errors: [] })
@@ -97,6 +98,7 @@ export default function App() {
       const r = await loadPrices(holdings)
       setPrices(r.prices)
       setPriceMeta({ updatedAt: new Date().toISOString(), stockUpdatedAt: r.stockUpdatedAt, errors: r.errors })
+      if (r.fxRates) setFxRates(r.fxRates)
       if (fxAuto && r.fxUsdTwd) {
         setFx(r.fxUsdTwd)
         store.setSetting('usdTwd', r.fxUsdTwd)
@@ -124,7 +126,7 @@ export default function App() {
     store.setSetting('fxAuto', next)
   }
 
-  const { totalAsset, totalDebt, netWorth, byCat } = summarize(holdings, fx, prices)
+  const { totalAsset, totalDebt, netWorth, byCat } = summarize(holdings, fx, prices, fxRates)
   const pnl = summarizePnl(holdings, fx, prices)
 
   // 每天記錄一次資產快照（同一天以最新值覆蓋），累積成走勢
@@ -238,7 +240,7 @@ export default function App() {
                 還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
               </div>
             ) : (
-              <HoldingsTable holdings={holdings} fx={fx} prices={prices} onEdit={openEdit} onDelete={remove} />
+              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} onEdit={openEdit} onDelete={remove} />
             )}
           </section>
         )}

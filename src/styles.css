@@ -178,8 +178,10 @@ body {
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(19, 34, 29, 0.4); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
 .modal { background: var(--card); border-radius: 18px; width: 100%; max-width: 460px; padding: 22px 24px 24px; box-shadow: 0 20px 60px -20px rgba(15, 60, 50, 0.4); animation: rise 0.2s ease both; }
-.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.modal-head h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0; }
+.modal-head { display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; margin-bottom: 16px; }
+.modal-head h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0; text-align: center; }
+.modal-head .icon-btn:last-child { justify-self: end; }
+.back-btn { font-size: 20px; justify-self: start; }
 .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; flex: 1; }
 .field > span { font-size: 12px; color: var(--muted); }
 .field input, .field select { border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 11px; font-size: 14px; font-family: var(--font-sans); color: var(--ink); background: #fff; outline: none; transition: border-color 0.12s ease, box-shadow 0.12s ease; }
@@ -292,3 +294,30 @@ body {
 }
 .icon-choice:hover { background: var(--bg-tint); }
 .icon-choice.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+
+/* ---------- New-holding wizard (Phase 9) ---------- */
+.wizard-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 4px 0 6px;
+}
+.wizard-grid.two { grid-template-columns: repeat(2, 1fr); }
+.wizard-grid.three { grid-template-columns: repeat(3, 1fr); }
+.wizard-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid var(--line-strong); border-radius: 14px; background: #fff;
+  padding: 18px 8px; cursor: pointer; color: var(--ink); font-size: 13px; font-weight: 600;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+}
+.wizard-tile:hover { background: var(--bg-tint); border-color: var(--accent); transform: translateY(-1px); }
+.wizard-tile-icon { font-size: 24px; display: flex; }
+.wizard-tile-icon svg { width: 26px; height: 26px; }
+.wizard-tile.small { padding: 12px 6px; gap: 4px; }
+.wizard-tile-code { font-family: var(--font-mono); font-size: 14px; font-weight: 600; }
+.wizard-tile-sub { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+.seg-inline { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.seg-inline button {
+  border: 1px solid var(--line-strong); background: #fff; color: var(--muted);
+  font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+  border-radius: 999px; padding: 6px 13px; cursor: pointer;
+}
+.seg-inline button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }

@@ -98,6 +98,7 @@ async function twData() {
 }
 
 const CRYPTO_NAMES = {
+  USDT: 'Tether 泰達幣（穩定幣）',
   BTC: 'Bitcoin 比特幣', ETH: 'Ethereum 以太幣', BNB: 'BNB', SOL: 'Solana',
   XRP: 'XRP', ADA: 'Cardano', DOGE: 'Dogecoin', TRX: 'TRON', TON: 'Toncoin',
   AVAX: 'Avalanche', LINK: 'Chainlink', DOT: 'Polkadot', MATIC: 'Polygon',
@@ -122,6 +123,10 @@ async function cryptoSymbols() {
     console.log('加密貨幣：', out.length, '種')
   } catch (e) {
     console.warn('加密貨幣清單失敗：', e.message)
+  }
+  // USDT 本身是計價幣，不會出現在上面 baseAsset 清單裡，手動補上
+  if (!out.some((c) => c.code === 'USDT')) {
+    out.push({ code: 'USDT', name: CRYPTO_NAMES.USDT })
   }
   out.sort((a, b) => a.code.localeCompare(b.code))
   return out
