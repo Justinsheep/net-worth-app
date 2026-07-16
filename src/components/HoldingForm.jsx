@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { CATEGORIES, isCashLike, catDefaultCurrency, quoteCurrencyOf, isStablecoin, priceKey } from '../calc'
+import { fetchOneCryptoPrice } from '../prices'
 import { CASH_CURRENCIES } from '../currencies'
 import { DEBT_TYPES } from '../debtTypes'
 import { IconGlyph } from '../icons'
@@ -30,8 +31,8 @@ const HAS_SEARCH = { tw_stock: true, crypto: true }
 
 const DEBT_LABEL = Object.fromEntries(DEBT_TYPES.map(([k, l]) => [k, l]))
 
-export default function HoldingForm({ editing, prices, onSave, onClose }) {
-  const [step, setStep] = useState(editing ? 3 : 1)
+export default function HoldingForm({ editing, template, prices, onSave, onClose }) {
+  const [step, setStep] = useState(editing || template ? 3 : 1)
   const [form, setForm] = useState(blank)
 
   useEffect(() => {
@@ -50,11 +51,24 @@ export default function HoldingForm({ editing, prices, onSave, onClose }) {
         icon: editing.icon ?? '',
       })
       setStep(3)
+    } else if (template) {
+      // 針對既有的一檔「加碼」：代號/名稱/幣別/圖示都先帶好，直接進到細節，數量/成本/日期留空
+      setForm({
+        ...blank,
+        category: template.category,
+        subtype: template.subtype ?? '',
+        name: template.name ?? '',
+        symbol: template.symbol ?? '',
+        bankName: template.bankName ?? '',
+        currency: template.currency ?? catDefaultCurrency(template.category),
+        icon: template.icon ?? '',
+      })
+      setStep(3)
     } else {
       setForm(blank)
       setStep(1)
     }
-  }, [editing])
+  }, [editing, template])
 
   const cashLike = isCashLike(form.category)
   const isBank = form.category === 'bank'
@@ -92,22 +106,38 @@ export default function HoldingForm({ editing, prices, onSave, onClose }) {
     setForm((f) => ({ ...f, symbol: code, ...(name != null ? { name } : {}) }))
   }
 
-  // 代號有抓到即時/每日報價時，自動把數字帶進「現價」欄，讓你一眼看到抓到了什麼
+  // 代號有抓到報價時，自動把數字帶進「現價」欄。
+  // 台股報價是整包預先抓好的（prices 裡查得到就直接用）；
+  // 加密貨幣只有「已存在的持倉」才會被整批抓，新增一顆全新的幣時 prices 裡還沒有，
+  // 這裡改成主動去查那一顆的即時價（debounce 400ms，避免打字時每個字都打 API）。
+  const [priceIsLive, setPriceIsLive] = useState(false)
   useEffect(() => {
+    setPriceIsLive(false)
     if (treatAsCashLike || isStable || !form.symbol) return
-    const live = prices ? prices[priceKey({ category: form.category, symbol: form.symbol })] : null
-    if (live != null && !Number.isNaN(Number(live))) {
-      setForm((f) => (f.symbol === form.symbol ? { ...f, price: String(live) } : f))
+    const category = form.category
+    const symbol = form.symbol
+
+    const cached = prices ? prices[priceKey({ category, symbol })] : null
+    if (cached != null && !Number.isNaN(Number(cached))) {
+      setForm((f) => (f.symbol === symbol && f.category === category ? { ...f, price: String(cached) } : f))
+      setPriceIsLive(true)
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    if (category !== 'crypto') return
+    const t = setTimeout(() => {
+      fetchOneCryptoPrice(symbol).then((live) => {
+        if (live == null) return
+        setForm((f) => (f.symbol === symbol && f.category === category ? { ...f, price: String(live) } : f))
+        setPriceIsLive(true)
+      })
+    }, 400)
+    return () => clearTimeout(t)
   }, [form.symbol, form.category, prices])
 
   const q = Number(form.quantity) || 0
   const tc = Number(form.totalCost) || 0
   const perUnit = q && tc ? tc / q : null
-  const hasLivePriceForSymbol =
-    !treatAsCashLike && !isStable && form.symbol && prices &&
-    prices[priceKey({ category: form.category, symbol: form.symbol })] != null
 
   function submit() {
     const skipCost = treatAsCashLike || isStable
@@ -135,7 +165,7 @@ export default function HoldingForm({ editing, prices, onSave, onClose }) {
           {canBack ? (
             <button className="icon-btn back-btn" onClick={() => setStep(step - 1)} aria-label="上一步">‹</button>
           ) : <span />}
-          <h2>{editing ? '編輯' : step === 1 ? '新增：選分類' : step === 2 ? '新增：選細項' : '新增'}</h2>
+          <h2>{editing ? '編輯' : step === 1 ? '新增：選分類' : step === 2 ? '新增：選細項' : template ? `加碼：${template.name || template.symbol}` : '新增'}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="關閉">✕</button>
         </div>
 
@@ -244,7 +274,7 @@ export default function HoldingForm({ editing, prices, onSave, onClose }) {
               </div>
             )}
 
-            {editing && isBank && (
+            {(editing || template) && isBank && (
               <label className="field">
                 <span>銀行</span>
                 <BankSearch value={form.bankName} onChange={(v) => set('bankName', v)} placeholder="打名稱搜尋，例：國泰世華" />
@@ -292,9 +322,9 @@ export default function HoldingForm({ editing, prices, onSave, onClose }) {
                 <label className="field">
                   <span>
                     現價（{quoteCurrencyOf(form.category)}）
-                    {hasLivePriceForSymbol ? <span className="live-tag inline">已抓到</span> : '，沒抓到時才用'}
+                    {priceIsLive ? <span className="live-tag inline">已抓到</span> : '，沒抓到時才用'}
                   </span>
-                  <input type="number" inputMode="decimal" value={form.price} onChange={(e) => set('price', e.target.value)} placeholder="0" />
+                  <input type="number" inputMode="decimal" value={form.price} onChange={(e) => { setPriceIsLive(false); set('price', e.target.value) }} placeholder="0" />
                 </label>
               )}
               {isStable && (

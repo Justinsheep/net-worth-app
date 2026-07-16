@@ -143,7 +143,19 @@ body {
 .empty-chart { color: var(--faint); font-size: 13px; padding: 30px 4px; line-height: 1.7; }
 
 .group { margin-bottom: 6px; }
-.group-head { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 12px; color: var(--muted); font-weight: 600; padding: 14px 0 7px; border-bottom: 1px solid var(--line); }
+.group-head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  font-family: var(--font-display); font-size: 12px; color: var(--muted); font-weight: 600;
+  padding: 14px 2px; border-bottom: 1px solid var(--line);
+  background: none; border-left: none; border-right: none; border-top: none; cursor: pointer;
+  border-radius: 8px; transition: background 0.12s ease;
+}
+.group-head:hover { background: var(--bg-tint); }
+.group-head .chev { width: 10px; }
+.group-head-label { color: var(--ink); }
+.group-head-count { color: var(--faint); font-weight: 400; }
+.group-head-total { margin-left: auto; font-family: var(--font-mono); color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.group-body { padding-top: 2px; }
 .row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .row:last-child { border-bottom: none; }
 .row-main { flex: 1; min-width: 0; }
@@ -161,8 +173,18 @@ body {
 .live-tag { display: inline-block; margin-left: 8px; font-family: var(--font-sans); font-size: 10px; color: var(--accent-ink); background: var(--accent-soft); border-radius: 5px; padding: 1px 6px; vertical-align: middle; }
 .empty { color: var(--faint); font-size: 14px; text-align: center; padding: 44px 12px; line-height: 1.9; }
 
-.agg-row { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; border-bottom: 1px solid var(--line); text-align: left; cursor: pointer; padding: 13px 0; font-family: inherit; border-radius: 8px; transition: background 0.12s ease; }
+.agg-row {
+  display: flex; align-items: center; gap: 4px; width: 100%;
+  border-bottom: 1px solid var(--line); border-radius: 8px;
+  transition: background 0.12s ease;
+}
 .agg-row:hover { background: var(--bg-tint); }
+.agg-toggle {
+  display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+  background: none; border: none; text-align: left; cursor: pointer;
+  padding: 13px 0 13px 2px; font-family: inherit;
+}
+.add-more-btn { flex: none; font-size: 17px; margin-right: 4px; }
 .chev { color: var(--faint); font-size: 12px; flex: none; width: 12px; transition: transform 0.15s ease; }
 .chev.open { transform: rotate(90deg); }
 .agg-main { flex: 1; min-width: 0; }

@@ -89,35 +89,39 @@ function PlainRow({ h, fx, prices, fxRates, onEdit, onDelete }) {
   )
 }
 
-function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDelete }) {
+// 股票/加密貨幣現貨：同一檔的大項（可展開），旁邊有「＋ 加碼」直接新增同一檔的一筆
+function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDelete, onAddMore }) {
   const agg = symbolAgg(lots, fx, prices)
   const key = g.key + ':' + symKey
   const isOpen = !!open[key]
   const unitWord = g.key === 'crypto' ? '' : ' 股'
   return (
     <div className="symgroup" key={key}>
-      <button className="agg-row" onClick={() => toggle(key)}>
-        <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>
-        <IconChip h={lots[0]} />
-        <div className="agg-main">
-          <div className="row-name">
-            {lots[0].name}
-            {lots[0].symbol ? <span className="row-symbol"> · {lots[0].symbol}</span> : null}
-          </div>
-          <div className="row-sub">
-            {fmtNum(agg.qty)}{unitWord}
-            {lots.length > 1 ? <span className="lot-count"> · {lots.length} 筆</span> : null}
-          </div>
-        </div>
-        <div className="row-right">
-          <div className="row-value">{fmtTwd(agg.valueTwd)}</div>
-          {agg.anyCost && (
-            <div className={'row-pnl' + (agg.pnlTwd >= 0 ? ' pos' : ' neg')}>
-              {fmtPct(agg.roi)} · {fmtSignedTwd(agg.pnlTwd)}
+      <div className="agg-row">
+        <button className="agg-toggle" onClick={() => toggle(key)}>
+          <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>
+          <IconChip h={lots[0]} />
+          <div className="agg-main">
+            <div className="row-name">
+              {lots[0].name}
+              {lots[0].symbol ? <span className="row-symbol"> · {lots[0].symbol}</span> : null}
             </div>
-          )}
-        </div>
-      </button>
+            <div className="row-sub">
+              {fmtNum(agg.qty)}{unitWord}
+              {lots.length > 1 ? <span className="lot-count"> · {lots.length} 筆</span> : null}
+            </div>
+          </div>
+          <div className="row-right">
+            <div className="row-value">{fmtTwd(agg.valueTwd)}</div>
+            {agg.anyCost && (
+              <div className={'row-pnl' + (agg.pnlTwd >= 0 ? ' pos' : ' neg')}>
+                {fmtPct(agg.roi)} · {fmtSignedTwd(agg.pnlTwd)}
+              </div>
+            )}
+          </div>
+        </button>
+        <button className="icon-btn add-more-btn" onClick={() => onAddMore(lots[0])} title="加碼這檔" aria-label={`針對 ${lots[0].name} 新增一筆`}>＋</button>
+      </div>
       {isOpen && (
         <div className="lot-list">
           {lots.map((h) => (
@@ -129,11 +133,13 @@ function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDele
   )
 }
 
-export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, onDelete }) {
+export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, onDelete, onAddMore }) {
   const [open, setOpen] = useState({})
+  const [catOpen, setCatOpen] = useState({})
   if (!holdings || holdings.length === 0) return null
 
   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }))
+  const toggleCat = (key) => setCatOpen((o) => ({ ...o, [key]: o[key] === false ? true : false }))
 
   const groups = CATEGORIES.map((c) => ({
     ...c,
@@ -146,25 +152,34 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
         // 依「單筆」而非分類判斷現金型，因為加密貨幣裡的「交易所」子分類要當現金處理
         const cashItems = g.items.filter((h) => holdingIsCashLike(h))
         const pricedItems = g.items.filter((h) => !holdingIsCashLike(h))
+        const subtotal = g.items.reduce((s, h) => s + holdingValueTwd(h, fx, prices, fxRates), 0)
+        const isOpen = catOpen[g.key] !== false // 預設展開
         return (
           <div className="group" key={g.key}>
-            <div className="group-head">
+            <button className="group-head" onClick={() => toggleCat(g.key)}>
+              <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>
               <span className="dot" style={{ background: catColor(g.key) }} />
-              {catLabel(g.key)}
-            </div>
+              <span className="group-head-label">{catLabel(g.key)}</span>
+              <span className="group-head-count">{g.items.length} 筆</span>
+              <span className="group-head-total">{fmtTwd(subtotal)}</span>
+            </button>
 
-            {cashItems.map((h) => (
-              <PlainRow key={h.id} h={h} fx={fx} prices={prices} fxRates={fxRates} onEdit={onEdit} onDelete={onDelete} />
-            ))}
+            {isOpen && (
+              <div className="group-body">
+                {cashItems.map((h) => (
+                  <PlainRow key={h.id} h={h} fx={fx} prices={prices} fxRates={fxRates} onEdit={onEdit} onDelete={onDelete} />
+                ))}
 
-            {groupBySymbol(pricedItems).map(([symKey, lots]) => (
-              <PricedGroup
-                key={g.key + ':' + symKey}
-                g={g} lots={lots} symKey={symKey}
-                fx={fx} prices={prices} open={open} toggle={toggle}
-                onEdit={onEdit} onDelete={onDelete}
-              />
-            ))}
+                {groupBySymbol(pricedItems).map(([symKey, lots]) => (
+                  <PricedGroup
+                    key={g.key + ':' + symKey}
+                    g={g} lots={lots} symKey={symKey}
+                    fx={fx} prices={prices} open={open} toggle={toggle}
+                    onEdit={onEdit} onDelete={onDelete} onAddMore={onAddMore}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )
       })}

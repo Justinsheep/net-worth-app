@@ -19,6 +19,20 @@ async function fetchCryptoPrice(symbol) {
   return Number(j.price)
 }
 
+// 查單一顆幣的即時價（供新增表單用）。跟 loadPrices 不同，這裡不受限於「已存在的持倉」，
+// 打了什麼代號就查什麼，這樣新增一顆全新的幣時也能立刻看到現價。
+export async function fetchOneCryptoPrice(symbol) {
+  const s = String(symbol || '').toUpperCase().trim()
+  if (!s) return null
+  if (s === 'USDT') return 1
+  try {
+    const price = await fetchCryptoPrice(s)
+    return Number.isNaN(price) ? null : price
+  } catch {
+    return null
+  }
+}
+
 export async function loadPrices(holdings) {
   const out = { prices: {}, fxUsdTwd: null, fxRates: null, stockUpdatedAt: null, errors: [] }
 

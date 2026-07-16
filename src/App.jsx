@@ -38,6 +38,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [template, setTemplate] = useState(null)
   const [clearOpen, setClearOpen] = useState(false)
   const [clearing, setClearing] = useState(false)
 
@@ -139,8 +140,21 @@ export default function App() {
     store.putSnapshot({ id: date, date, netWorthTwd: netWorth, totalAssetTwd: totalAsset, totalDebtTwd: totalDebt, updatedAt: Date.now() })
   }, [netWorth, totalAsset, totalDebt, loading, holdings.length])
 
-  function openAdd() { setEditing(null); setFormOpen(true) }
-  function openEdit(h) { setEditing(h); setFormOpen(true) }
+  function openAdd() { setEditing(null); setTemplate(null); setFormOpen(true) }
+  function openEdit(h) { setEditing(h); setTemplate(null); setFormOpen(true) }
+  function openAddMore(h) {
+    setEditing(null)
+    setTemplate({
+      category: h.category,
+      subtype: h.subtype,
+      name: h.name,
+      symbol: h.symbol,
+      bankName: h.bankName,
+      currency: h.currency,
+      icon: h.icon,
+    })
+    setFormOpen(true)
+  }
   async function save(rec) {
     if (editing) await store.updateHolding(editing.id, rec)
     else await store.addHolding(rec)
@@ -257,7 +271,7 @@ export default function App() {
                 還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
               </div>
             ) : (
-              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} onEdit={openEdit} onDelete={remove} />
+              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} onEdit={openEdit} onDelete={remove} onAddMore={openAddMore} />
             )}
           </section>
         )}
@@ -369,7 +383,7 @@ export default function App() {
       </nav>
 
       {formOpen && (
-        <HoldingForm editing={editing} prices={prices} onSave={save} onClose={() => { setFormOpen(false); setEditing(null) }} />
+        <HoldingForm editing={editing} template={template} prices={prices} onSave={save} onClose={() => { setFormOpen(false); setEditing(null); setTemplate(null) }} />
       )}
       {clearOpen && (
         <ConfirmClearModal busy={clearing} onConfirm={confirmClear} onExport={exportData} onClose={() => setClearOpen(false)} />
