@@ -23,6 +23,31 @@ export const store = {
     // 軟刪除：標記 deleted 並更新時間，讓刪除也能同步到其他裝置
     await db.holdings.update(id, { deleted: true, updatedAt: Date.now() })
   },
+  async deleteHoldings(ids) {
+    const now = Date.now()
+    await db.transaction('rw', db.holdings, async () => {
+      for (const id of ids) await db.holdings.update(id, { deleted: true, updatedAt: now })
+    })
+  },
+
+  // ---- 已刪除（垃圾桶）----
+  async listDeleted() {
+    return db.holdings.filter((h) => !!h.deleted).toArray()
+  },
+  async restoreHolding(id) {
+    await db.holdings.update(id, { deleted: false, updatedAt: Date.now() })
+  },
+  async restoreHoldings(ids) {
+    const now = Date.now()
+    await db.transaction('rw', db.holdings, async () => {
+      for (const id of ids) await db.holdings.update(id, { deleted: false, updatedAt: now })
+    })
+  },
+  // 永久刪除（本機硬刪除）。雲端那份要另外呼叫 sync.js 的 purgeHoldingsRemote 清掉，
+  // 不然下次同步會把雲端還在的那筆拉回來。
+  async purgeHoldings(ids) {
+    await db.holdings.bulkDelete(ids)
+  },
 
   // ---- 設定（例如 USD/TWD 匯率）----
   async getSetting(key, fallback) {

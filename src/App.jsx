@@ -5,12 +5,13 @@ import { store } from './store'
 import { summarize, summarizePnl, fmtTwd, fmtPct } from './calc'
 import { loadPrices } from './prices'
 import { supabase, supabaseEnabled } from './supabase'
-import { syncNow, wipeCloud } from './sync'
+import { syncNow, wipeCloud, purgeHoldingsRemote } from './sync'
 import AllocationChart from './components/AllocationChart'
 import TrendChart from './components/TrendChart'
 import HoldingForm from './components/HoldingForm'
 import HoldingsTable from './components/HoldingsTable'
 import ConfirmClearModal from './components/ConfirmClearModal'
+import DeletedPanel from './components/DeletedPanel'
 
 const REFRESH_MS = 60_000 // 每 60 秒自動更新一次報價
 
@@ -27,6 +28,10 @@ export default function App() {
     [], []
   )
   const snapshots = useLiveQuery(() => db.snapshots.orderBy('date').toArray(), [], [])
+  const deletedHoldings = useLiveQuery(
+    () => db.holdings.orderBy('updatedAt').reverse().filter((h) => !!h.deleted).toArray(),
+    [], []
+  )
   const [tab, setTab] = useState('overview')
   const [trendMetric, setTrendMetric] = useState('net')
   const [session, setSession] = useState(null)
@@ -168,7 +173,20 @@ export default function App() {
     setFormOpen(false); setEditing(null)
   }
   async function remove(h) {
-    if (confirm(`刪除「${h.name}」？`)) await store.deleteHolding(h.id)
+    if (confirm(`刪除「${h.name}」？（可以之後在設定的「已刪除」復原）`)) await store.deleteHolding(h.id)
+  }
+  async function removeMany(ids, label) {
+    if (!ids.length) return
+    if (confirm(`刪除「${label}」底下全部 ${ids.length} 筆？（可以之後在設定的「已刪除」復原）`)) {
+      await store.deleteHoldings(ids)
+    }
+  }
+  async function restoreHoldings(ids) {
+    await store.restoreHoldings(ids)
+  }
+  async function purgeHoldings(ids) {
+    await store.purgeHoldings(ids)
+    if (session) await purgeHoldingsRemote(session.user.id, ids)
   }
 
   async function exportData() {
@@ -278,7 +296,7 @@ export default function App() {
                 還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
               </div>
             ) : (
-              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} onEdit={openEdit} onDelete={remove} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} />
+              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} onEdit={openEdit} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} />
             )}
           </section>
         )}
@@ -358,6 +376,16 @@ export default function App() {
                   </label>
                 </div>
               </div>
+            </section>
+
+            <section className="panel">
+              <h3 className="panel-title">已刪除</h3>
+              <DeletedPanel
+                items={deletedHoldings}
+                fx={fx} prices={prices} fxRates={fxRates}
+                onRestore={restoreHoldings}
+                onPurge={purgeHoldings}
+              />
             </section>
 
             <section className="panel danger-panel">

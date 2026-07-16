@@ -23,6 +23,13 @@ export async function syncNow(userId) {
 
 // 清空這個帳號在雲端的所有資料（holdings + snapshots）。
 // 用在「清空所有紀錄」功能——本機清空後，若不順便清雲端，下次同步會把雲端的舊資料拉回來。
+// 永久刪除指定的幾筆持倉（雲端這份）。跟本機的 store.purgeHoldings 搭配使用，
+// 不清雲端的話，下次同步又會把雲端還在的那筆拉回本機。
+export async function purgeHoldingsRemote(userId, ids) {
+  if (!supabase || !userId || !ids?.length) return
+  await supabase.from('holdings').delete().eq('user_id', userId).in('id', ids.map(String))
+}
+
 export async function wipeCloud(userId) {
   if (!supabase || !userId) return
   await Promise.all([

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { CATEGORIES, isCashLike, catDefaultCurrency, quoteCurrencyOf, isStablecoin, priceKey } from '../calc'
+import { CATEGORIES, isCashLike, catDefaultCurrency, catColor, quoteCurrencyOf, isStablecoin, priceKey } from '../calc'
 import { fetchOneCryptoPrice } from '../prices'
 import { CASH_CURRENCIES } from '../currencies'
 import { DEBT_TYPES } from '../debtTypes'
@@ -365,10 +365,22 @@ export default function HoldingForm({ editing, template, prices, onSave, onClose
               </>
             )}
 
-            <label className="field">
-              <span>圖示（選填，不選就用分類預設）</span>
-              <IconPicker value={form.icon} category={form.category} subtype={form.subtype} onChange={(v) => set('icon', v)} />
-            </label>
+            {template ? (
+              <div className="field">
+                <span>圖示</span>
+                <div className="icon-locked">
+                  <span className="icon-chip" style={{ '--chip-c': catColor(form.category) }}>
+                    <IconGlyph name={form.icon} category={form.category} subtype={form.subtype} />
+                  </span>
+                  <span className="icon-locked-note">跟這組一致，不能更改</span>
+                </div>
+              </div>
+            ) : (
+              <label className="field">
+                <span>圖示（選填，不選就用分類預設）</span>
+                <IconPicker value={form.icon} category={form.category} subtype={form.subtype} onChange={(v) => set('icon', v)} />
+              </label>
+            )}
 
             <div className="modal-actions">
               <button className="btn ghost" onClick={onClose}>取消</button>

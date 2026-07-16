@@ -144,13 +144,16 @@ body {
 
 .group { margin-bottom: 6px; }
 .group-head {
-  display: flex; align-items: center; gap: 8px; width: 100%;
+  display: flex; align-items: center; gap: 4px; width: 100%;
+  padding: 6px 2px; border-bottom: 1px solid var(--line);
+}
+.group-head-toggle {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
   font-family: var(--font-display); font-size: 12px; color: var(--muted); font-weight: 600;
-  padding: 14px 2px; border-bottom: 1px solid var(--line);
-  background: none; border-left: none; border-right: none; border-top: none; cursor: pointer;
+  padding: 8px 4px; background: none; border: none; cursor: pointer; text-align: left;
   border-radius: 8px; transition: background 0.12s ease;
 }
-.group-head:hover { background: var(--bg-tint); }
+.group-head-toggle:hover { background: var(--bg-tint); }
 .group-head .chev { width: 10px; }
 .group-head-label { color: var(--ink); }
 .group-head-count { color: var(--faint); font-weight: 400; }
@@ -352,3 +355,19 @@ body {
 .danger-text { color: var(--neg); background: var(--neg-soft); border-radius: 10px; padding: 10px 12px; line-height: 1.7; }
 .export-btn { width: 100%; margin-bottom: 12px; }
 .live-tag.inline { margin-left: 6px; }
+
+/* ---------- Trash / 已刪除 (Phase 12) ---------- */
+.btn.sm { padding: 5px 11px; font-size: 12px; }
+.trash-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line);
+}
+.trash-selectall { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.trash-bulk-actions { display: flex; gap: 8px; }
+.trash-row { gap: 10px; }
+.trash-row input[type="checkbox"] { flex: none; width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* ---------- Locked icon (加碼 quick-add) ---------- */
+.icon-locked { display: flex; align-items: center; gap: 10px; }
+.icon-locked .icon-chip { width: 38px; height: 38px; border-radius: 10px; }
+.icon-locked-note { font-size: 12px; color: var(--faint); }

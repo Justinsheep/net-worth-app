@@ -125,7 +125,7 @@ function PlainRow({ h, fx, prices, fxRates, onEdit, onDelete }) {
 }
 
 // 股票/加密貨幣現貨：同一檔的大項（可展開），旁邊有「＋ 加碼」直接新增同一檔的一筆
-function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDelete, onAddMore }) {
+function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDelete, onAddMore, onDeleteMany }) {
   const agg = symbolAgg(lots, fx, prices)
   const key = g.key + ':' + symKey
   const isOpen = !!open[key]
@@ -156,6 +156,11 @@ function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDele
           </div>
         </button>
         <button className="icon-btn add-more-btn" onClick={() => onAddMore(lots[0])} title="加碼這檔" aria-label={`針對 ${lots[0].name} 新增一筆`}>＋</button>
+        <button
+          className="icon-btn danger add-more-btn"
+          onClick={() => onDeleteMany(lots.map((h) => h.id), lots[0].name)}
+          title="刪除這一檔" aria-label={`刪除 ${lots[0].name} 全部`}
+        >🗑</button>
       </div>
       {isOpen && (
         <div className="lot-list">
@@ -169,7 +174,7 @@ function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDele
 }
 
 // 負債子分類 / 銀行：依名稱分組的大項（可展開），旁邊有「＋ 加碼」
-function BucketGroup({ groupKey, label, items, fx, prices, fxRates, open, toggle, onEdit, onDelete, onAddMore }) {
+function BucketGroup({ groupKey, label, items, fx, prices, fxRates, open, toggle, onEdit, onDelete, onAddMore, onDeleteMany }) {
   const isOpen = !!open[groupKey]
   const subtotal = items.reduce((s, h) => s + holdingValueTwd(h, fx, prices, fxRates), 0)
   return (
@@ -187,6 +192,11 @@ function BucketGroup({ groupKey, label, items, fx, prices, fxRates, open, toggle
           </div>
         </button>
         <button className="icon-btn add-more-btn" onClick={() => onAddMore(items[0])} title="加碼" aria-label={`針對 ${label} 新增一筆`}>＋</button>
+        <button
+          className="icon-btn danger add-more-btn"
+          onClick={() => onDeleteMany(items.map((h) => h.id), label)}
+          title="刪除這一組" aria-label={`刪除 ${label} 全部`}
+        >🗑</button>
       </div>
       {isOpen && (
         <div className="lot-list">
@@ -199,7 +209,7 @@ function BucketGroup({ groupKey, label, items, fx, prices, fxRates, open, toggle
   )
 }
 
-export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, onDelete, onAddMore, onAddMoreBucket }) {
+export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, onDelete, onDeleteMany, onAddMore, onAddMoreBucket }) {
   const [open, setOpen] = useState({})
   const [catOpen, setCatOpen] = useState({})
   if (!holdings || holdings.length === 0) return null
@@ -227,7 +237,7 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
               label={DEBT_LABEL[subKey] || '其他'}
               items={items}
               fx={fx} prices={prices} fxRates={fxRates} open={open} toggle={toggle}
-              onEdit={onEdit} onDelete={onDelete}
+              onEdit={onEdit} onDelete={onDelete} onDeleteMany={onDeleteMany}
               onAddMore={(tpl) => onAddMoreBucket('debt', { subtype: subKey, currency: tpl.currency, icon: tpl.icon, name: DEBT_LABEL[subKey] || '其他' })}
             />
           ))
@@ -239,7 +249,7 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
               label={bankKey}
               items={items}
               fx={fx} prices={prices} fxRates={fxRates} open={open} toggle={toggle}
-              onEdit={onEdit} onDelete={onDelete}
+              onEdit={onEdit} onDelete={onDelete} onDeleteMany={onDeleteMany}
               onAddMore={(tpl) => onAddMoreBucket('bank', { bankName: bankKey, currency: tpl.currency, icon: tpl.icon })}
             />
           ))
@@ -256,7 +266,7 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
                   key={g.key + ':' + symKey}
                   g={g} lots={lots} symKey={symKey}
                   fx={fx} prices={prices} open={open} toggle={toggle}
-                  onEdit={onEdit} onDelete={onDelete} onAddMore={onAddMore}
+                  onEdit={onEdit} onDelete={onDelete} onAddMore={onAddMore} onDeleteMany={onDeleteMany}
                 />
               ))}
             </>
@@ -265,13 +275,21 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
 
         return (
           <div className="group" key={g.key}>
-            <button className="group-head" onClick={() => toggleCat(g.key)}>
-              <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>
-              <span className="dot" style={{ background: catColor(g.key) }} />
-              <span className="group-head-label">{catLabel(g.key)}</span>
-              <span className="group-head-count">{g.items.length} 筆</span>
-              <span className="group-head-total">{fmtTwd(subtotal)}</span>
-            </button>
+            <div className="group-head">
+              <button className="group-head-toggle" onClick={() => toggleCat(g.key)}>
+                <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>
+                <span className="dot" style={{ background: catColor(g.key) }} />
+                <span className="group-head-label">{catLabel(g.key)}</span>
+                <span className="group-head-count">{g.items.length} 筆</span>
+                <span className="group-head-total">{fmtTwd(subtotal)}</span>
+              </button>
+              <button
+                className="icon-btn danger"
+                onClick={() => onDeleteMany(g.items.map((h) => h.id), catLabel(g.key))}
+                title={`刪除「${catLabel(g.key)}」全部`}
+                aria-label={`刪除「${catLabel(g.key)}」全部`}
+              >🗑</button>
+            </div>
             {isOpen && <div className="group-body">{body}</div>}
           </div>
         )
