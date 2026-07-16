@@ -329,3 +329,4 @@ body {
 .danger-panel { border-color: #f3d6d1; }
 .danger-text { color: var(--neg); background: var(--neg-soft); border-radius: 10px; padding: 10px 12px; line-height: 1.7; }
 .export-btn { width: 100%; margin-bottom: 12px; }
+.live-tag.inline { margin-left: 6px; }

@@ -369,7 +369,7 @@ export default function App() {
       </nav>
 
       {formOpen && (
-        <HoldingForm editing={editing} onSave={save} onClose={() => { setFormOpen(false); setEditing(null) }} />
+        <HoldingForm editing={editing} prices={prices} onSave={save} onClose={() => { setFormOpen(false); setEditing(null) }} />
       )}
       {clearOpen && (
         <ConfirmClearModal busy={clearing} onConfirm={confirmClear} onExport={exportData} onClose={() => setClearOpen(false)} />

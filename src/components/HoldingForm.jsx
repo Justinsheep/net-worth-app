@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { CATEGORIES, isCashLike, catDefaultCurrency, quoteCurrencyOf, isStablecoin } from '../calc'
+import { CATEGORIES, isCashLike, catDefaultCurrency, quoteCurrencyOf, isStablecoin, priceKey } from '../calc'
 import { CASH_CURRENCIES } from '../currencies'
 import { DEBT_TYPES } from '../debtTypes'
 import { IconGlyph } from '../icons'
@@ -30,7 +30,7 @@ const HAS_SEARCH = { tw_stock: true, crypto: true }
 
 const DEBT_LABEL = Object.fromEntries(DEBT_TYPES.map(([k, l]) => [k, l]))
 
-export default function HoldingForm({ editing, onSave, onClose }) {
+export default function HoldingForm({ editing, prices, onSave, onClose }) {
   const [step, setStep] = useState(editing ? 3 : 1)
   const [form, setForm] = useState(blank)
 
@@ -92,9 +92,22 @@ export default function HoldingForm({ editing, onSave, onClose }) {
     setForm((f) => ({ ...f, symbol: code, ...(name != null ? { name } : {}) }))
   }
 
+  // 代號有抓到即時/每日報價時，自動把數字帶進「現價」欄，讓你一眼看到抓到了什麼
+  useEffect(() => {
+    if (treatAsCashLike || isStable || !form.symbol) return
+    const live = prices ? prices[priceKey({ category: form.category, symbol: form.symbol })] : null
+    if (live != null && !Number.isNaN(Number(live))) {
+      setForm((f) => (f.symbol === form.symbol ? { ...f, price: String(live) } : f))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.symbol, form.category, prices])
+
   const q = Number(form.quantity) || 0
   const tc = Number(form.totalCost) || 0
   const perUnit = q && tc ? tc / q : null
+  const hasLivePriceForSymbol =
+    !treatAsCashLike && !isStable && form.symbol && prices &&
+    prices[priceKey({ category: form.category, symbol: form.symbol })] != null
 
   function submit() {
     const skipCost = treatAsCashLike || isStable
@@ -277,7 +290,10 @@ export default function HoldingForm({ editing, onSave, onClose }) {
               </label>
               {!treatAsCashLike && !isStable && (
                 <label className="field">
-                  <span>現價（{quoteCurrencyOf(form.category)}，沒抓到時才用）</span>
+                  <span>
+                    現價（{quoteCurrencyOf(form.category)}）
+                    {hasLivePriceForSymbol ? <span className="live-tag inline">已抓到</span> : '，沒抓到時才用'}
+                  </span>
                   <input type="number" inputMode="decimal" value={form.price} onChange={(e) => set('price', e.target.value)} placeholder="0" />
                 </label>
               )}
