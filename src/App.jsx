@@ -155,6 +155,13 @@ export default function App() {
     })
     setFormOpen(true)
   }
+  // 負債子分類/銀行分組的「加碼」：帶入分類與分組依據（子分類/銀行名），但不複製名稱
+  // （因為同一子分類/同一家銀行底下的每一筆通常是不同的東西，例如兩台車的車貸）
+  function openAddMoreBucket(category, extra) {
+    setEditing(null)
+    setTemplate({ category, ...extra })
+    setFormOpen(true)
+  }
   async function save(rec) {
     if (editing) await store.updateHolding(editing.id, rec)
     else await store.addHolding(rec)
@@ -271,7 +278,7 @@ export default function App() {
                 還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
               </div>
             ) : (
-              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} onEdit={openEdit} onDelete={remove} onAddMore={openAddMore} />
+              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} onEdit={openEdit} onDelete={remove} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} />
             )}
           </section>
         )}
