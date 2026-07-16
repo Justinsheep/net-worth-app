@@ -13,12 +13,20 @@ import HoldingsTable from './components/HoldingsTable'
 
 const REFRESH_MS = 60_000 // 每 60 秒自動更新一次報價
 
+const TABS = [
+  { key: 'overview', label: '總覽', icon: '◆' },
+  { key: 'holdings', label: '細項', icon: '☰' },
+  { key: 'trend', label: '走勢', icon: '⌁' },
+  { key: 'settings', label: '設定', icon: '⚙' },
+]
+
 export default function App() {
   const holdings = useLiveQuery(
     () => db.holdings.orderBy('updatedAt').reverse().filter((h) => !h.deleted).toArray(),
     [], []
   )
   const snapshots = useLiveQuery(() => db.snapshots.orderBy('date').toArray(), [], [])
+  const [tab, setTab] = useState('overview')
   const [trendMetric, setTrendMetric] = useState('net')
   const [session, setSession] = useState(null)
   const [fx, setFx] = useState(32)
@@ -34,6 +42,15 @@ export default function App() {
     store.getSetting('usdTwd', 32).then(setFx)
     store.getSetting('fxAuto', true).then(setFxAuto)
   }, [])
+
+  // 新增/編輯面板開啟時鎖住背景捲動，避免面板位置隨頁面高度跑掉
+  useEffect(() => {
+    if (formOpen) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = prev }
+    }
+  }, [formOpen])
 
   // 登入狀態
   useEffect(() => {
@@ -163,117 +180,163 @@ export default function App() {
           <span className="brand-mark" />
           <h1>我的總資產</h1>
         </div>
-        <div className="top-actions">
-          <div className="fx">
-            <span>USD/TWD</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={Number(fx).toFixed ? Number(fx).toFixed(2) : fx}
-              disabled={fxAuto}
-              onChange={(e) => changeFx(e.target.value)}
-            />
-            <button className={'fx-toggle' + (fxAuto ? ' on' : '')} onClick={toggleFxAuto}>
-              {fxAuto ? '自動' : '手動'}
-            </button>
-          </div>
-          <button className="btn primary" onClick={openAdd}>＋ 新增</button>
-        </div>
       </header>
 
-      {supabaseEnabled && (
-        <div className="account">
-          {session ? (
-            <>
-              <span className="acct-dot" />
-              <span className="acct-email">{session.user.email}</span>
-              <span className="acct-sync">已同步</span>
-              <button className="ghost-mini" onClick={logout}>登出</button>
-            </>
-          ) : (
-            <>
-              <span className="acct-hint">目前只存這台裝置</span>
-              <button className="ghost-mini acct-login" onClick={login}>用 Google 登入以同步</button>
-            </>
-          )}
-        </div>
-      )}
+      <main className="tab-content">
+        {tab === 'overview' && (
+          <>
+            <section className="hero">
+              <div className="hero-label">淨資產</div>
+              <div className={'hero-value' + (netWorth < 0 ? ' neg' : '')}>{fmtTwd(netWorth)}</div>
+              <div className="hero-rule" />
+              <div className="hero-stats">
+                <div className="stat">
+                  <span className="stat-label">總資產</span>
+                  <span className="stat-value pos">{fmtTwd(totalAsset)}</span>
+                </div>
+                <div className="stat">
+                  <span className="stat-label">總負債</span>
+                  <span className="stat-value neg">{fmtTwd(totalDebt)}</span>
+                </div>
+                {pnl.hasAny && (
+                  <div className="stat" title="只計已填成本的部位">
+                    <span className="stat-label">未實現損益</span>
+                    <span className={'stat-value ' + (pnl.pnlTwd >= 0 ? 'pos' : 'neg')}>
+                      {fmtTwd(pnl.pnlTwd)} <small className="stat-pct">{fmtPct(pnl.roi)}</small>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
 
-      <section className="hero">
-        <div className="hero-label">淨資產</div>
-        <div className={'hero-value' + (netWorth < 0 ? ' neg' : '')}>{fmtTwd(netWorth)}</div>
-        <div className="hero-rule" />
-        <div className="hero-stats">
-          <div className="stat">
-            <span className="stat-label">總資產</span>
-            <span className="stat-value pos">{fmtTwd(totalAsset)}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">總負債</span>
-            <span className="stat-value neg">{fmtTwd(totalDebt)}</span>
-          </div>
-          {pnl.hasAny && (
-            <div className="stat" title="只計已填成本的部位">
-              <span className="stat-label">未實現損益</span>
-              <span className={'stat-value ' + (pnl.pnlTwd >= 0 ? 'pos' : 'neg')}>
-                {fmtTwd(pnl.pnlTwd)} <small className="stat-pct">{fmtPct(pnl.roi)}</small>
+            <div className="pricebar">
+              <span className={'pricebar-status' + (loading ? ' loading' : '')}>
+                <span className="live-dot" />
+                報價更新於 {updatedTime}
               </span>
+              <span className="pricebar-note">加密貨幣・匯率 即時　|　台股 來自每日收盤</span>
+              <button className="ghost-mini" onClick={refresh} disabled={loading}>
+                {loading ? '更新中…' : '↻ 重新整理'}
+              </button>
             </div>
-          )}
-        </div>
-      </section>
+            {priceMeta.errors.length > 0 && (
+              <div className="pricebar-errors">{priceMeta.errors.join('　·　')}</div>
+            )}
 
-      <div className="pricebar">
-        <span className={'pricebar-status' + (loading ? ' loading' : '')}>
-          <span className="live-dot" />
-          報價更新於 {updatedTime}
-        </span>
-        <span className="pricebar-note">加密貨幣・匯率 即時　|　台股・美股 來自 prices.json</span>
-        <button className="ghost-mini" onClick={refresh} disabled={loading}>
-          {loading ? '更新中…' : '↻ 重新整理'}
-        </button>
-      </div>
-      {priceMeta.errors.length > 0 && (
-        <div className="pricebar-errors">{priceMeta.errors.join('　·　')}</div>
-      )}
+            <section className="panel">
+              <h3 className="panel-title">資產配置</h3>
+              <AllocationChart byCat={byCat} />
+            </section>
+          </>
+        )}
 
-      <section className="panel trend">
-        <div className="trend-head">
-          <h3 className="panel-title">資產走勢</h3>
-          <div className="seg">
-            <button className={trendMetric === 'net' ? 'on' : ''} onClick={() => setTrendMetric('net')}>淨資產</button>
-            <button className={trendMetric === 'asset' ? 'on' : ''} onClick={() => setTrendMetric('asset')}>總資產</button>
-          </div>
-        </div>
-        <TrendChart snapshots={snapshots} metric={trendMetric} />
-      </section>
+        {tab === 'holdings' && (
+          <section className="panel">
+            <h3 className="panel-title">持倉明細</h3>
+            {holdings.length === 0 ? (
+              <div className="empty">
+                還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
+              </div>
+            ) : (
+              <HoldingsTable holdings={holdings} fx={fx} prices={prices} onEdit={openEdit} onDelete={remove} />
+            )}
+          </section>
+        )}
 
-      <div className="grid">
-        <section className="panel">
-          <h3 className="panel-title">資產配置</h3>
-          <AllocationChart byCat={byCat} />
-        </section>
-
-        <section className="panel">
-          <h3 className="panel-title">持倉明細</h3>
-          {holdings.length === 0 ? (
-            <div className="empty">
-              還沒有任何資料。<br />按右上角「＋ 新增」加入你的第一筆持倉或負債。
+        {tab === 'trend' && (
+          <section className="panel trend">
+            <div className="trend-head">
+              <h3 className="panel-title">資產走勢</h3>
+              <div className="seg">
+                <button className={trendMetric === 'net' ? 'on' : ''} onClick={() => setTrendMetric('net')}>淨資產</button>
+                <button className={trendMetric === 'asset' ? 'on' : ''} onClick={() => setTrendMetric('asset')}>總資產</button>
+              </div>
             </div>
-          ) : (
-            <HoldingsTable holdings={holdings} fx={fx} prices={prices} onEdit={openEdit} onDelete={remove} />
-          )}
-        </section>
-      </div>
+            <TrendChart snapshots={snapshots} metric={trendMetric} />
+          </section>
+        )}
 
-      <footer className="footer">
-        <button className="link-btn" onClick={exportData}>匯出備份</button>
-        <label className="link-btn">
-          匯入備份
-          <input type="file" accept="application/json" onChange={importData} hidden />
-        </label>
-        <span className="footer-note">資料只存在這台裝置的瀏覽器裡（IndexedDB）。</span>
-      </footer>
+        {tab === 'settings' && (
+          <>
+            {supabaseEnabled && (
+              <section className="panel">
+                <h3 className="panel-title">帳號與同步</h3>
+                {session ? (
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-row-title">{session.user.email}</div>
+                      <div className="settings-row-sub">已登入，資料自動跨裝置同步</div>
+                    </div>
+                    <button className="btn ghost" onClick={logout}>登出</button>
+                  </div>
+                ) : (
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-row-title">目前只存這台裝置</div>
+                      <div className="settings-row-sub">登入後可在手機、電腦間自動同步</div>
+                    </div>
+                    <button className="btn primary" onClick={login}>用 Google 登入</button>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="panel">
+              <h3 className="panel-title">匯率</h3>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">USD / TWD</div>
+                  <div className="settings-row-sub">影響美股、加密貨幣換算成台幣的匯率</div>
+                </div>
+                <div className="fx">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={Number(fx).toFixed ? Number(fx).toFixed(2) : fx}
+                    disabled={fxAuto}
+                    onChange={(e) => changeFx(e.target.value)}
+                  />
+                  <button className={'fx-toggle' + (fxAuto ? ' on' : '')} onClick={toggleFxAuto}>
+                    {fxAuto ? '自動' : '手動'}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="panel">
+              <h3 className="panel-title">備份</h3>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">匯出 / 匯入</div>
+                  <div className="settings-row-sub">存成 JSON 檔，換裝置或清瀏覽器前建議備份</div>
+                </div>
+                <div className="settings-actions">
+                  <button className="btn ghost" onClick={exportData}>匯出備份</button>
+                  <label className="btn ghost">
+                    匯入備份
+                    <input type="file" accept="application/json" onChange={importData} hidden />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <p className="footer-note settings-footnote">
+              資料存在這台裝置的瀏覽器裡（IndexedDB）{session ? '，並與雲端同步。' : '。'}
+            </p>
+          </>
+        )}
+      </main>
+
+      <button className="fab" onClick={openAdd} aria-label="新增持倉或負債">＋</button>
+
+      <nav className="tabbar">
+        {TABS.map((t) => (
+          <button key={t.key} className={'tabbar-btn' + (tab === t.key ? ' on' : '')} onClick={() => setTab(t.key)}>
+            <span className="tabbar-icon">{t.icon}</span>
+            <span className="tabbar-label">{t.label}</span>
+          </button>
+        ))}
+      </nav>
 
       {formOpen && (
         <HoldingForm editing={editing} onSave={save} onClose={() => { setFormOpen(false); setEditing(null) }} />

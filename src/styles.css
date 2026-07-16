@@ -41,14 +41,14 @@ body {
 }
 
 .app {
-  max-width: 960px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 22px 20px 72px;
-  animation: rise 0.5s ease both;
+  padding: 22px 20px 108px;
+  animation: rise 0.4s ease both;
 }
-@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rise { from { opacity: 0; } to { opacity: 1; } }
 
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 2px 20px; }
+.topbar { display: flex; align-items: center; padding: 4px 2px 18px; }
 .brand { display: flex; align-items: center; gap: 11px; }
 .brand-mark {
   width: 12px; height: 22px; border-radius: 4px; display: inline-block;
@@ -56,7 +56,8 @@ body {
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 .brand h1 { font-family: var(--font-display); font-size: 19px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
-.top-actions { display: flex; align-items: center; gap: 10px; }
+
+.tab-content { display: flex; flex-direction: column; gap: 14px; }
 
 .fx {
   display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted);
@@ -225,3 +226,47 @@ body {
 .acct-login { margin-left: auto; }
 .account .ghost-mini { margin-left: auto; }
 .account .acct-sync + .ghost-mini { margin-left: 0; }
+
+/* ---------- Bottom tab bar + FAB (Phase 7) ---------- */
+.tabbar {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+  display: flex; gap: 2px; width: calc(100% - 32px); max-width: 420px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+  padding: 6px; box-shadow: 0 16px 40px -18px rgba(15, 60, 50, 0.35);
+  z-index: 30;
+}
+.tabbar-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  border: none; background: transparent; color: var(--faint); cursor: pointer;
+  padding: 8px 4px 7px; border-radius: 13px; font-family: var(--font-sans);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.tabbar-btn.on { background: var(--accent-soft); color: var(--accent-ink); }
+.tabbar-icon { font-size: 16px; line-height: 1; }
+.tabbar-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.2px; }
+
+.fab {
+  position: fixed; right: 20px; bottom: 82px; z-index: 31;
+  width: 54px; height: 54px; border-radius: 50%; border: none;
+  background: var(--accent); color: #fff; font-size: 25px; line-height: 1;
+  cursor: pointer; box-shadow: 0 10px 24px -8px rgba(15, 181, 163, 0.6);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.fab:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 14px 28px -8px rgba(15, 181, 163, 0.7); }
+.fab:active { transform: scale(0.96); }
+
+/* ---------- Settings rows (Phase 7) ---------- */
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+}
+.settings-row-title { font-size: 14px; color: var(--ink); font-weight: 500; }
+.settings-row-sub { font-size: 12px; color: var(--faint); margin-top: 3px; line-height: 1.5; }
+.settings-actions { display: flex; gap: 8px; }
+.settings-actions .btn { white-space: nowrap; }
+.settings-footnote { text-align: center; padding: 4px 8px; }
+
+@media (max-width: 480px) {
+  .settings-row { flex-direction: column; align-items: flex-start; }
+  .settings-actions { width: 100%; }
+  .settings-actions .btn { flex: 1; text-align: center; }
+}
