@@ -1,0 +1,8 @@
+node_modules
+dist
+.DS_Store
+*.local
+
+# 報價與代號清單由 GitHub Actions 在部署時自動產生，不需要 commit
+public/prices.json
+public/symbols.json
