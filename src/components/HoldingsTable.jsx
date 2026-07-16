@@ -215,7 +215,7 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
   if (!holdings || holdings.length === 0) return null
 
   const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }))
-  const toggleCat = (key) => setCatOpen((o) => ({ ...o, [key]: o[key] === false ? true : false }))
+  const toggleCat = (key) => setCatOpen((o) => ({ ...o, [key]: o[key] !== true }))
 
   const groups = CATEGORIES.map((c) => ({
     ...c,
@@ -226,7 +226,7 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
     <div className="table">
       {groups.map((g) => {
         const subtotal = g.items.reduce((s, h) => s + holdingValueTwd(h, fx, prices, fxRates), 0)
-        const isOpen = catOpen[g.key] !== false // 預設展開
+        const isOpen = catOpen[g.key] === true // 預設收起
 
         let body
         let itemCount
