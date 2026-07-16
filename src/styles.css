@@ -386,3 +386,21 @@ body {
 .icon-locked .icon-chip { width: 38px; height: 38px; border-radius: 10px; }
 .icon-locked-note { font-size: 12px; color: var(--faint); }
 .modal-wide { max-width: 560px; max-height: 84vh; overflow-y: auto; }
+
+/* ---------- 更多（選填）collapsible + change chips (Phase 13) ---------- */
+.more-toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  background: none; border: none; cursor: pointer; padding: 8px 2px; margin: 2px 0 4px;
+  font-family: var(--font-sans); font-size: 13px; font-weight: 600; color: var(--accent-ink);
+}
+.more-toggle .chev { color: var(--accent-ink); font-size: 11px; }
+.more-body { border-top: 1px dashed var(--line); padding-top: 12px; margin-bottom: 4px; }
+.ok-hint { color: var(--accent-ink); }
+
+.change-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.change-chip {
+  font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums;
+  padding: 3px 10px; border-radius: 999px;
+}
+.change-chip.pos { color: var(--pos); background: var(--pos-soft); }
+.change-chip.neg { color: var(--neg); background: var(--neg-soft); }

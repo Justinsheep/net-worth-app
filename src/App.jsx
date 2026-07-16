@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
 import { store } from './store'
-import { summarize, summarizePnl, fmtTwd, fmtPct } from './calc'
+import { summarize, summarizePnl, fmtTwd, fmtPct, fmtSignedTwd } from './calc'
 import { loadPrices } from './prices'
 import { supabase, supabaseEnabled } from './supabase'
 import { syncNow, wipeCloud, purgeHoldingsRemote } from './sync'
@@ -14,6 +14,20 @@ import ConfirmClearModal from './components/ConfirmClearModal'
 import DeletedPanel from './components/DeletedPanel'
 
 const REFRESH_MS = 60_000 // 每 60 秒自動更新一次報價
+
+// 從每日快照算出「距今 N 天」相對現在的變化。找不到足夠早的快照就回傳 null。
+function changeSince(snapshots, current, days) {
+  if (!snapshots?.length) return null
+  const targetDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+  let base = null
+  for (const s of snapshots) {
+    if (s.date <= targetDate) base = s
+    else break
+  }
+  if (!base || base.netWorthTwd == null || base.netWorthTwd === 0) return null
+  const delta = current - base.netWorthTwd
+  return { delta, pct: delta / Math.abs(base.netWorthTwd) }
+}
 
 const TABS = [
   { key: 'overview', label: '總覽', icon: '◆' },
@@ -47,11 +61,13 @@ export default function App() {
   const [clearOpen, setClearOpen] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
+  const [symbolPrefs, setSymbolPrefs] = useState({})
 
   // 讀取上次存的匯率與自動/手動設定
   useEffect(() => {
     store.getSetting('usdTwd', 32).then(setFx)
     store.getSetting('fxAuto', true).then(setFxAuto)
+    store.getSetting('symbolPrefs', {}).then((v) => setSymbolPrefs(v || {}))
   }, [])
 
   // 新增/編輯面板開啟時鎖住背景捲動，避免面板位置隨頁面高度跑掉
@@ -138,6 +154,11 @@ export default function App() {
 
   const { totalAsset, totalDebt, netWorth, byCat } = summarize(holdings, fx, prices, fxRates)
   const pnl = summarizePnl(holdings, fx, prices)
+  const changes = [
+    ['今日', changeSince(snapshots, netWorth, 1)],
+    ['本週', changeSince(snapshots, netWorth, 7)],
+    ['本月', changeSince(snapshots, netWorth, 30)],
+  ].filter(([, c]) => c != null)
 
   // 每天記錄一次資產快照（同一天以最新值覆蓋），累積成走勢
   useEffect(() => {
@@ -171,7 +192,14 @@ export default function App() {
   async function save(rec) {
     if (editing) await store.updateHolding(editing.id, rec)
     else await store.addHolding(rec)
-    setFormOpen(false); setEditing(null)
+    // 記憶：這個代號這次用了什麼成本幣別，下次同一代號自動帶上
+    if (rec.symbol && (rec.category === 'tw_stock' || rec.category === 'crypto')) {
+      const key = `${rec.category}:${rec.symbol.toUpperCase()}`
+      const next = { ...symbolPrefs, [key]: { currency: rec.currency } }
+      setSymbolPrefs(next)
+      store.setSetting('symbolPrefs', next)
+    }
+    setFormOpen(false); setEditing(null); setTemplate(null)
   }
   async function remove(h) {
     if (confirm(`刪除「${h.name}」？（可以之後在設定的「已刪除」復原）`)) await store.deleteHolding(h.id)
@@ -247,6 +275,15 @@ export default function App() {
             <section className="hero">
               <div className="hero-label">淨資產</div>
               <div className={'hero-value' + (netWorth < 0 ? ' neg' : '')}>{fmtTwd(netWorth)}</div>
+              {changes.length > 0 && (
+                <div className="change-row">
+                  {changes.map(([label, c]) => (
+                    <span key={label} className={'change-chip ' + (c.delta >= 0 ? 'pos' : 'neg')} title={fmtSignedTwd(c.delta)}>
+                      {label} {fmtPct(c.pct)}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="hero-rule" />
               <div className="hero-stats">
                 <div className="stat">
@@ -424,7 +461,7 @@ export default function App() {
       </nav>
 
       {formOpen && (
-        <HoldingForm editing={editing} template={template} prices={prices} onSave={save} onClose={() => { setFormOpen(false); setEditing(null); setTemplate(null) }} />
+        <HoldingForm editing={editing} template={template} prices={prices} symbolPrefs={symbolPrefs} onSave={save} onClose={() => { setFormOpen(false); setEditing(null); setTemplate(null) }} />
       )}
       {clearOpen && (
         <ConfirmClearModal busy={clearing} onConfirm={confirmClear} onExport={exportData} onClose={() => setClearOpen(false)} />

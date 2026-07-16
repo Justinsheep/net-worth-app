@@ -32,14 +32,12 @@ export const ICON_DEFS = {
   cap: () => <P><path d="M12 5 21 9l-9 4-9-4Z" opacity="0.18" /><path d="M12 5 21 9l-9 4-9-4Z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /><path d="M6.5 11v4c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M21 9v5.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></P>,
 }
 
-// 顯示順序與中文標籤（用在挑選面板）
+// 挑選面板顯示的圖示（精簡成最常用的一組，選起來更快）。
+// 註：ICON_DEFS 仍保留全部定義，分類/子分類的預設圖示照常運作，只是不全部列進挑選面板。
 export const ICON_LIST = [
   ['coin', '金幣'], ['banknote', '鈔票'], ['piggy', '撲滿'], ['wallet', '皮夾'],
-  ['bank', '銀行'], ['gem', '寶石'], ['safe', '保險箱'], ['card', '信用卡'],
-  ['chartUp', '上漲'], ['percent', '百分比'], ['calculator', '計算機'], ['house', '房屋'],
-  ['shield', '保障'], ['star', '星星'], ['chest', '寶箱'], ['key', '鑰匙'],
-  ['umbrella', '保險'], ['rocket', '成長'], ['target', '目標'], ['clock', '定存'],
-  ['goldbar', '金條'], ['scale', '天秤'], ['car', '車輛'], ['cap', '學業'],
+  ['bank', '銀行'], ['card', '信用卡'], ['chartUp', '上漲'], ['house', '房屋'],
+  ['car', '車輛'], ['goldbar', '金條'],
 ]
 
 // 各分類（可含子分類）沒有自選圖示時的預設圖示
