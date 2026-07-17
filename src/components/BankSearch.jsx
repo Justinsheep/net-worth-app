@@ -21,7 +21,8 @@ export default function BankSearch({ value, onChange, onSelect, placeholder, aut
   function onType(v) {
     onChange(v)
     const q = v.trim()
-    setMatches(q ? TW_BANKS.filter((b) => b.includes(q)) : TW_BANKS)
+    if (!q) { setOpen(false); return }
+    setMatches(TW_BANKS.filter((b) => b.includes(q)))
     setOpen(true)
   }
 
@@ -37,7 +38,7 @@ export default function BankSearch({ value, onChange, onSelect, placeholder, aut
         ref={inputRef}
         value={value}
         onChange={(e) => onType(e.target.value)}
-        onFocus={() => { setMatches(value.trim() ? TW_BANKS.filter((b) => b.includes(value.trim())) : TW_BANKS); setOpen(true) }}
+        onFocus={() => { const q = value.trim(); if (q) { setMatches(TW_BANKS.filter((b) => b.includes(q))); setOpen(true) } }}
         placeholder={placeholder}
         autoComplete="off"
         autoFocus={autoFocus}
