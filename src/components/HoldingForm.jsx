@@ -55,7 +55,7 @@ function CalcInput({ value, onCommit, placeholder }) {
             <button key={op} type="button" className="calc-op" onMouseDown={(e) => { e.preventDefault(); insert(op) }}>{label}</button>
           ))}
           {preview != null && String(preview) !== raw && (
-            <span className="calc-preview">= {preview.toLocaleString('en-US', { maximumFractionDigits: 8 })}</span>
+            <span className="calc-preview">= {preview.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
           )}
         </div>
       )}
@@ -361,7 +361,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
                           <input type="date" value={form.buyDate} onChange={(e) => set('buyDate', e.target.value)} />
                         </label>
                         {perUnit != null && (
-                          <p className="hint">成本單價 ≈ <b>{perUnit.toLocaleString('en-US', { maximumFractionDigits: 4 })} {form.currency}</b>（總投入 ÷ 數量）。市場報價固定是 {quoteCurrencyOf(form.category)}，換算自動處理。</p>
+                          <p className="hint">成本單價 ≈ <b>{perUnit.toLocaleString('en-US', { maximumFractionDigits: 2 })} {form.currency}</b>（總投入 ÷ 數量）。市場報價固定是 {quoteCurrencyOf(form.category)}，換算自動處理。</p>
                         )}
                       </>
                     )}

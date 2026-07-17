@@ -8,7 +8,7 @@ const ROWS = [
   ['⌫', '0', '.', '+'],
 ]
 const KEY_MAP = { '÷': '/', '×': '*', '−': '-' }
-const fmtNum = (n) => n.toLocaleString('en-US', { maximumFractionDigits: 8 })
+const fmtNum = (n) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
 
 export default function NumberPad({ title, value, onCommit, onClose }) {
   const [expr, setExpr] = useState(value != null && value !== '' ? String(value) : '')

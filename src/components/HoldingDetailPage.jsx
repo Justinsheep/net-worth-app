@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import {
   catLabel, catColor, holdingIsCashLike, holdingValueTwd, effectiveUnitPrice,
   hasLivePrice, quoteCurrencyOf, lotPnlTwd, lotRoi, symbolAgg, priceKey,
-  fmtTwd, fmtNum, fmtPct, fmtSignedTwd,
+  fmtTwd, fmtNum, fmtQty, qtyUnit, fmtPct, fmtSignedTwd,
 } from '../calc'
 import { DEBT_LABEL } from '../grouping'
 import { IconChip } from '../icons'
@@ -20,7 +20,7 @@ function TxnRow({ h, priced, fx, prices, simpleMode, onEdit, onDelete }) {
         <div className="row-main">
           <div className="row-sub">
             {h.buyDate ? <span className="buy-date">{h.buyDate}</span> : <span className="buy-date">未填日期</span>}
-            {fmtNum(h.quantity)} × {fmtNum(unit)} {quoteCurrencyOf(h.category)}
+            {fmtQty(h.quantity)} {qtyUnit(h.category)} × {fmtNum(unit)} {quoteCurrencyOf(h.category)}
             {live && <span className="live-tag">即時</span>}
           </div>
         </div>
@@ -125,7 +125,7 @@ export default function HoldingDetailPage({ groupKey, holdings, fx, prices, fxRa
             <div className="hero-stats">
               <div className="stat">
                 <span className="stat-label">持股數</span>
-                <span className="stat-value">{fmtNum(agg.qty)}</span>
+                <span className="stat-value">{fmtQty(agg.qty)} {qtyUnit(groupKey.category)}</span>
               </div>
               <div className="stat">
                 <span className="stat-label">現價</span>
@@ -134,7 +134,11 @@ export default function HoldingDetailPage({ groupKey, holdings, fx, prices, fxRa
               {!simpleMode && agg.anyCost && (
                 <div className="stat">
                   <span className="stat-label">成本均價</span>
-                  <span className="stat-value">{fmtNum(agg.costTwd / agg.qty)} TWD</span>
+                  {groupKey.category === 'crypto' ? (
+                    <span className="stat-value">{fmtNum(agg.costTwd / fx / agg.qty)} USD</span>
+                  ) : (
+                    <span className="stat-value">{fmtNum(agg.costTwd / agg.qty)} TWD</span>
+                  )}
                 </div>
               )}
               {!simpleMode && agg.anyCost && (

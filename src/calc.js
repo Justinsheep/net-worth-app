@@ -150,7 +150,12 @@ export function symbolAgg(lots, fx, prices) {
 // ---------- 格式化 ----------
 export const fmtTwd = (n) => 'NT$ ' + Math.round(Number(n || 0)).toLocaleString('en-US')
 export const fmtNum = (n) =>
+  Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
+// 持股數量（股票股數／加密貨幣顆數）不受上面兩位小數限制，小額加密貨幣才不會顯示成 0
+export const fmtQty = (n) =>
   Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 8 })
+// 數量單位：台股「股」、加密貨幣「顆」，其他分類沒有單位
+export const qtyUnit = (category) => (category === 'tw_stock' ? '股' : category === 'crypto' ? '顆' : '')
 export const fmtPct = (r) =>
   r == null ? '—' : (r >= 0 ? '+' : '-') + Math.abs(r * 100).toFixed(1) + '%'
 export const fmtSignedTwd = (n) =>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CATEGORIES, catLabel, catColor, holdingIsCashLike, holdingValueTwd } from '../calc'
 import { groupBySymbol, groupDebtBySubtype, groupByBank, DEBT_LABEL } from '../grouping'
-import { fmtTwd, fmtNum } from '../calc'
+import { fmtTwd, fmtNum, fmtQty, qtyUnit } from '../calc'
 import { IconChip } from '../icons'
 
 // 現金：單筆一列（現金不分組，維持原樣，也沒有詳細頁可點）
@@ -116,13 +116,12 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
               {symGroups.map(([symKey, lots]) => {
                 const total = lots.reduce((s, h) => s + holdingValueTwd(h, fx, prices), 0)
                 const qty = lots.reduce((s, h) => s + Number(h.quantity || 0), 0)
-                const unitWord = g.key === 'crypto' ? '' : ' 股'
                 return (
                   <GroupRow
                     key={g.key + ':' + symKey}
                     icon={<IconChip holding={lots[0]} color={catColor(lots[0].category)} />}
                     title={<>{lots[0].name}{lots[0].symbol ? <span className="row-symbol"> · {lots[0].symbol}</span> : null}</>}
-                    sub={`${fmtNum(qty)}${unitWord}${lots.length > 1 ? ` · ${lots.length} 筆` : ''}`}
+                    sub={`${fmtQty(qty)} ${qtyUnit(g.key)}${lots.length > 1 ? ` · ${lots.length} 筆` : ''}`}
                     valueTwd={total}
                     deleteLabel={lots[0].name}
                     onOpen={() => onOpenDetail({ kind: 'symbol', category: g.key, symbol: symKey, label: lots[0].name })}

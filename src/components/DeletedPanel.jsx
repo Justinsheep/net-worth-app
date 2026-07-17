@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { catLabel, catColor, holdingValueTwd, fmtTwd, fmtNum } from '../calc'
+import { catLabel, catColor, holdingIsCashLike, holdingValueTwd, fmtTwd, fmtNum, fmtQty, qtyUnit } from '../calc'
 import { IconChip } from '../icons'
 
 export default function DeletedPanel({ items, fx, prices, fxRates, onRestore, onPurge }) {
@@ -51,7 +51,8 @@ export default function DeletedPanel({ items, fx, prices, fxRates, onRestore, on
               <div className="row-main">
                 <div className="row-name">{h.name}</div>
                 <div className="row-sub">
-                  {catLabel(h.category)}　{fmtNum(h.quantity)} {h.currency}
+                  {catLabel(h.category)}　
+                  {holdingIsCashLike(h) ? `${fmtNum(h.quantity)} ${h.currency}` : `${fmtQty(h.quantity)} ${qtyUnit(h.category)}`}
                 </div>
               </div>
               <div className="row-value">{fmtTwd(v)}</div>
