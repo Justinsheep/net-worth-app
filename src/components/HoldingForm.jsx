@@ -78,6 +78,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
   const [moreOpen, setMoreOpen] = useState(false)
   const [priceIsLive, setPriceIsLive] = useState(false)
   const [padOpen, setPadOpen] = useState(false)
+  const [costPadOpen, setCostPadOpen] = useState(false)
 
   useEffect(() => {
     if (editing) {
@@ -343,7 +344,9 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
                         <div className="field-row">
                           <label className="field">
                             <span>總投入成本</span>
-                            <CalcInput value={form.totalCost} onCommit={(v) => set('totalCost', v)} placeholder="這筆總共花多少" />
+                            <button type="button" className="calc-trigger" onClick={() => setCostPadOpen(true)}>
+                              {form.totalCost !== '' ? form.totalCost : <span className="calc-trigger-placeholder">點一下輸入</span>}
+                            </button>
                           </label>
                           <label className="field currency-field">
                             <span>成本幣別</span>
@@ -398,6 +401,14 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
           value={form.quantity}
           onCommit={(v) => set('quantity', v)}
           onClose={() => setPadOpen(false)}
+        />
+      )}
+      {costPadOpen && (
+        <NumberPad
+          title="總投入成本"
+          value={form.totalCost}
+          onCommit={(v) => set('totalCost', v)}
+          onClose={() => setCostPadOpen(false)}
         />
       )}
     </div>
