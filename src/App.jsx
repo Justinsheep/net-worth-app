@@ -72,17 +72,33 @@ export default function App() {
   const [changePct, setChangePct] = useState({})
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
-  const lastScrollY = useRef(0)
+  const scrollAnchorRef = useRef(0) // 上次「決定要不要收起」時的捲動位置，滑動要離這裡夠遠才會再次切換
 
-  // 往下滑自動收起底部選單與＋，往上滑或接近頂部就恢復
+  // 往下滑自動收起底部選單與＋，往上滑或接近頂部就恢復。
+  // 用「錨點」而非逐次比較，避免手機慣性捲動的小抖動被誤判成改變方向。
   useEffect(() => {
+    let ticking = false
     function onScroll() {
-      const y = window.scrollY
-      const delta = y - lastScrollY.current
-      if (y < 40) setNavHidden(false)
-      else if (delta > 8) setNavHidden(true)
-      else if (delta < -8) setNavHidden(false)
-      lastScrollY.current = y
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        const y = window.scrollY
+        const THRESHOLD = 28
+        if (y < 40) {
+          setNavHidden(false)
+          scrollAnchorRef.current = y
+        } else {
+          const delta = y - scrollAnchorRef.current
+          if (delta > THRESHOLD) {
+            setNavHidden(true)
+            scrollAnchorRef.current = y
+          } else if (delta < -THRESHOLD) {
+            setNavHidden(false)
+            scrollAnchorRef.current = y
+          }
+        }
+        ticking = false
+      })
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
