@@ -62,13 +62,21 @@ export default function App() {
   const [clearing, setClearing] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
   const [symbolPrefs, setSymbolPrefs] = useState({})
+  const [simpleMode, setSimpleMode] = useState(false)
 
   // 讀取上次存的匯率與自動/手動設定
   useEffect(() => {
     store.getSetting('usdTwd', 32).then(setFx)
     store.getSetting('fxAuto', true).then(setFxAuto)
     store.getSetting('symbolPrefs', {}).then((v) => setSymbolPrefs(v || {}))
+    store.getSetting('simpleMode', false).then((v) => setSimpleMode(!!v))
   }, [])
+
+  function toggleSimpleMode() {
+    const next = !simpleMode
+    setSimpleMode(next)
+    store.setSetting('simpleMode', next)
+  }
 
   // 新增/編輯面板開啟時鎖住背景捲動，避免面板位置隨頁面高度跑掉
   useEffect(() => {
@@ -276,7 +284,7 @@ export default function App() {
             <section className="hero">
               <div className="hero-label">淨資產</div>
               <div className={'hero-value' + (netWorth < 0 ? ' neg' : '')}>{fmtTwd(netWorth)}</div>
-              {changes.length > 0 && (
+              {!simpleMode && changes.length > 0 && (
                 <div className="change-row">
                   {changes.map(([label, c]) => (
                     <span key={label} className={'change-chip ' + (c.delta >= 0 ? 'pos' : 'neg')} title={fmtSignedTwd(c.delta)}>
@@ -295,7 +303,7 @@ export default function App() {
                   <span className="stat-label">總負債</span>
                   <span className="stat-value neg">{fmtTwd(totalDebt)}</span>
                 </div>
-                {pnl.hasAny && (
+                {!simpleMode && pnl.hasAny && (
                   <div className="stat" title="只計已填成本的部位">
                     <span className="stat-label">未實現損益</span>
                     <span className={'stat-value ' + (pnl.pnlTwd >= 0 ? 'pos' : 'neg')}>
@@ -335,7 +343,7 @@ export default function App() {
                 還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
               </div>
             ) : (
-              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} onEdit={openEdit} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} />
+              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} onEdit={openEdit} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} />
             )}
           </section>
         )}
@@ -355,6 +363,24 @@ export default function App() {
 
         {tab === 'settings' && (
           <>
+            <section className="panel">
+              <h3 className="panel-title">顯示模式</h3>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-row-title">{simpleMode ? '簡易版' : '詳細版'}</div>
+                  <div className="settings-row-sub">
+                    {simpleMode
+                      ? '單純記錄資產：只看現值、配置與走勢，隱藏損益/成本。資料不會刪，隨時切回。'
+                      : '完整功能：含成本、報酬率、損益與變化幅度。'}
+                  </div>
+                </div>
+                <div className="seg">
+                  <button className={!simpleMode ? 'on' : ''} onClick={() => simpleMode && toggleSimpleMode()}>詳細版</button>
+                  <button className={simpleMode ? 'on' : ''} onClick={() => !simpleMode && toggleSimpleMode()}>簡易版</button>
+                </div>
+              </div>
+            </section>
+
             {supabaseEnabled && (
               <section className="panel">
                 <h3 className="panel-title">帳號與同步</h3>
@@ -462,7 +488,7 @@ export default function App() {
       </nav>
 
       {formOpen && (
-        <HoldingForm editing={editing} template={template} prices={prices} symbolPrefs={symbolPrefs} onSave={save} onClose={() => { setFormOpen(false); setEditing(null); setTemplate(null) }} />
+        <HoldingForm editing={editing} template={template} prices={prices} symbolPrefs={symbolPrefs} simpleMode={simpleMode} onSave={save} onClose={() => { setFormOpen(false); setEditing(null); setTemplate(null) }} />
       )}
       {clearOpen && (
         <ConfirmClearModal busy={clearing} onConfirm={confirmClear} onExport={exportData} onClose={() => setClearOpen(false)} />

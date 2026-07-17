@@ -55,7 +55,7 @@ function IconChip({ h }) {
 }
 
 // 展開後的單筆明細列（股票/加密貨幣現貨）
-function LotRow({ h, fx, prices, onEdit, onDelete }) {
+function LotRow({ h, fx, prices, simpleMode, onEdit, onDelete }) {
   const v = holdingValueTwd(h, fx, prices)
   const live = hasLivePrice(h, prices)
   const unit = effectiveUnitPrice(h, prices)
@@ -72,7 +72,7 @@ function LotRow({ h, fx, prices, onEdit, onDelete }) {
       </div>
       <div className="row-right">
         <div className="row-value">{fmtTwd(v)}</div>
-        {pnl != null && (
+        {!simpleMode && pnl != null && (
           <div className={'row-pnl' + (pnl >= 0 ? ' pos' : ' neg')}>
             {fmtPct(roi)} · {fmtSignedTwd(pnl)}
           </div>
@@ -125,7 +125,7 @@ function PlainRow({ h, fx, prices, fxRates, onEdit, onDelete }) {
 }
 
 // 股票/加密貨幣現貨：同一檔的大項（可展開），旁邊有「＋ 加碼」直接新增同一檔的一筆
-function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDelete, onAddMore, onDeleteMany }) {
+function PricedGroup({ g, lots, symKey, fx, prices, simpleMode, open, toggle, onEdit, onDelete, onAddMore, onDeleteMany }) {
   const agg = symbolAgg(lots, fx, prices)
   const key = g.key + ':' + symKey
   const isOpen = !!open[key]
@@ -148,7 +148,7 @@ function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDele
           </div>
           <div className="row-right">
             <div className="row-value">{fmtTwd(agg.valueTwd)}</div>
-            {agg.anyCost && (
+            {!simpleMode && agg.anyCost && (
               <div className={'row-pnl' + (agg.pnlTwd >= 0 ? ' pos' : ' neg')}>
                 {fmtPct(agg.roi)} · {fmtSignedTwd(agg.pnlTwd)}
               </div>
@@ -165,7 +165,7 @@ function PricedGroup({ g, lots, symKey, fx, prices, open, toggle, onEdit, onDele
       {isOpen && (
         <div className="lot-list">
           {lots.map((h) => (
-            <LotRow key={h.id} h={h} fx={fx} prices={prices} onEdit={onEdit} onDelete={onDelete} />
+            <LotRow key={h.id} h={h} fx={fx} prices={prices} simpleMode={simpleMode} onEdit={onEdit} onDelete={onDelete} />
           ))}
         </div>
       )}
@@ -209,7 +209,7 @@ function BucketGroup({ groupKey, label, items, fx, prices, fxRates, open, toggle
   )
 }
 
-export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, onDelete, onDeleteMany, onAddMore, onAddMoreBucket }) {
+export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMode, onEdit, onDelete, onDeleteMany, onAddMore, onAddMoreBucket }) {
   const [open, setOpen] = useState({})
   const [catOpen, setCatOpen] = useState({})
   if (!holdings || holdings.length === 0) return null
@@ -272,7 +272,7 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, onEdit, o
                 <PricedGroup
                   key={g.key + ':' + symKey}
                   g={g} lots={lots} symKey={symKey}
-                  fx={fx} prices={prices} open={open} toggle={toggle}
+                  fx={fx} prices={prices} simpleMode={simpleMode} open={open} toggle={toggle}
                   onEdit={onEdit} onDelete={onDelete} onAddMore={onAddMore} onDeleteMany={onDeleteMany}
                 />
               ))}
