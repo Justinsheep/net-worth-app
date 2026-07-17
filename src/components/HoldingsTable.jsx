@@ -155,7 +155,11 @@ function PricedGroup({ g, lots, symKey, fx, prices, simpleMode, open, toggle, on
             )}
           </div>
         </button>
-        <button className="icon-btn add-more-btn" onClick={() => onAddMore(lots[0])} title="加碼這檔" aria-label={`針對 ${lots[0].name} 新增一筆`}>＋</button>
+        {simpleMode ? (
+          <button className="icon-btn add-more-btn" onClick={() => onEdit(lots[0])} title="修改" aria-label={`修改 ${lots[0].name}`}>✎</button>
+        ) : (
+          <button className="icon-btn add-more-btn" onClick={() => onAddMore(lots[0])} title="加碼這檔" aria-label={`針對 ${lots[0].name} 新增一筆`}>＋</button>
+        )}
         <button
           className="icon-btn danger add-more-btn"
           onClick={() => onDeleteMany(lots.map((h) => h.id), lots[0].name)}
