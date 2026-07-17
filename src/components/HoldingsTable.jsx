@@ -128,13 +128,13 @@ function PlainRow({ h, fx, prices, fxRates, onEdit, onDelete }) {
 function PricedGroup({ g, lots, symKey, fx, prices, simpleMode, open, toggle, onEdit, onDelete, onAddMore, onDeleteMany }) {
   const agg = symbolAgg(lots, fx, prices)
   const key = g.key + ':' + symKey
-  const isOpen = !!open[key]
+  const isOpen = !simpleMode && !!open[key]
   const unitWord = g.key === 'crypto' ? '' : ' 股'
   return (
     <div className="symgroup" key={key}>
       <div className="agg-row">
-        <button className="agg-toggle" onClick={() => toggle(key)}>
-          <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>
+        <button className="agg-toggle" onClick={() => !simpleMode && toggle(key)} disabled={simpleMode}>
+          {!simpleMode && <span className={'chev' + (isOpen ? ' open' : '')} aria-hidden="true">▸</span>}
           <IconChip h={lots[0]} />
           <div className="agg-main">
             <div className="row-name">
@@ -143,7 +143,7 @@ function PricedGroup({ g, lots, symKey, fx, prices, simpleMode, open, toggle, on
             </div>
             <div className="row-sub">
               {fmtNum(agg.qty)}{unitWord}
-              {lots.length > 1 ? <span className="lot-count"> · {lots.length} 筆</span> : null}
+              {!simpleMode && lots.length > 1 ? <span className="lot-count"> · {lots.length} 筆</span> : null}
             </div>
           </div>
           <div className="row-right">

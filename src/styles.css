@@ -420,3 +420,6 @@ body {
   margin-left: auto; font-family: var(--font-mono); font-size: 13px;
   color: var(--accent-ink); font-variant-numeric: tabular-nums; font-weight: 500;
 }
+.agg-toggle:disabled { cursor: default; }
+.agg-row:has(.agg-toggle:disabled) { cursor: default; }
+.agg-row:has(.agg-toggle:disabled):hover { background: none; }
