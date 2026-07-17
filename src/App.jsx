@@ -511,7 +511,11 @@ export default function App() {
         )}
       </main>
 
-      <button className="fab" data-tour="fab" onClick={openAdd} aria-label="新增持倉或負債">＋</button>
+      <button className="fab" data-tour="fab" onClick={openAdd} aria-label="新增持倉或負債">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+          <path d="M12 4v16M4 12h16" />
+        </svg>
+      </button>
 
       <nav className="tabbar">
         {TABS.map((t) => (
