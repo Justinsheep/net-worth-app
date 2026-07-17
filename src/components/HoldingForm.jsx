@@ -281,7 +281,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
                   placeholder={isBank ? '薪轉戶 / 活存 / 定存' : isExchangeBalance ? 'Binance 合約帳戶 / 網格' : isStable ? 'USDT' : '玉山活存 / 現金'} />
               </label>
             ) : (
-              <div className="field-row">
+              <>
                 <label className="field">
                   <span>代號</span>
                   {HAS_SEARCH[form.category] ? (
@@ -294,7 +294,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
                   <span>名稱</span>
                   <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="選代號自動帶入" />
                 </label>
-              </div>
+              </>
             )}
 
             {/* 數量 / 金額（＋幣別 or 現價） */}
