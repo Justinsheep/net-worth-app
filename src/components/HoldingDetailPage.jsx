@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   catLabel, catColor, holdingIsCashLike, holdingValueTwd, effectiveUnitPrice,
   hasLivePrice, quoteCurrencyOf, lotPnlTwd, lotRoi, symbolAgg, priceKey,
@@ -6,17 +6,22 @@ import {
 } from '../calc'
 import { DEBT_LABEL } from '../grouping'
 import { IconChip } from '../icons'
+import SwipeRow from './SwipeRow'
 
-// 交易明細裡的一列
-function TxnRow({ h, priced, fx, prices, simpleMode, onEdit, onDelete }) {
+// 交易明細裡的一列。往右滑露出「✎編輯」「🗑刪除」，平常畫面乾淨、金額靠右。
+function TxnRow({ h, priced, fx, prices, simpleMode, openSwipe, onOpenSwipeChange, onEdit, onDelete }) {
   const v = holdingValueTwd(h, fx, prices)
+  const actions = [
+    { icon: '✎', label: '編輯', onClick: () => onEdit(h) },
+    { icon: '🗑', label: '刪除', danger: true, onClick: () => onDelete(h) },
+  ]
   if (priced) {
     const live = hasLivePrice(h, prices)
     const unit = effectiveUnitPrice(h, prices)
     const pnl = lotPnlTwd(h, fx, prices)
     const roi = lotRoi(h, fx, prices)
     return (
-      <div className="row lot">
+      <SwipeRow rowKey={h.id} openKey={openSwipe} onOpenChange={onOpenSwipeChange} actions={actions} onTap={() => onEdit(h)} frontClassName="txn-front">
         <div className="row-main">
           <div className="row-sub">
             {h.buyDate ? <span className="buy-date">{h.buyDate}</span> : <span className="buy-date">未填日期</span>}
@@ -30,30 +35,23 @@ function TxnRow({ h, priced, fx, prices, simpleMode, onEdit, onDelete }) {
             <div className={'row-pnl' + (pnl >= 0 ? ' pos' : ' neg')}>{fmtPct(roi)} · {fmtSignedTwd(pnl)}</div>
           )}
         </div>
-        <div className="row-actions">
-          <button className="icon-btn" onClick={() => onEdit(h)} aria-label="編輯">✎</button>
-          <button className="icon-btn danger" onClick={() => onDelete(h)} aria-label="刪除">🗑</button>
-        </div>
-      </div>
+      </SwipeRow>
     )
   }
   return (
-    <div className="row lot">
+    <SwipeRow rowKey={h.id} openKey={openSwipe} onOpenChange={onOpenSwipeChange} actions={actions} onTap={() => onEdit(h)} frontClassName="txn-front">
       <div className="row-main">
         <div className="row-sub">{h.name} · {fmtNum(h.quantity)} {h.currency}</div>
       </div>
       <div className="row-right">
         <div className={'row-value' + (v < 0 ? ' neg' : '')}>{fmtTwd(v)}</div>
       </div>
-      <div className="row-actions">
-        <button className="icon-btn" onClick={() => onEdit(h)} aria-label="編輯">✎</button>
-        <button className="icon-btn danger" onClick={() => onDelete(h)} aria-label="刪除">🗑</button>
-      </div>
-    </div>
+    </SwipeRow>
   )
 }
 
 export default function HoldingDetailPage({ groupKey, holdings, fx, prices, fxRates, changePct, simpleMode, onBack, onEdit, onDelete, onAddMore, onAddMoreBucket }) {
+  const [openSwipe, setOpenSwipe] = useState(null)
   const priced = groupKey.kind === 'symbol'
 
   let items
@@ -163,7 +161,7 @@ export default function HoldingDetailPage({ groupKey, holdings, fx, prices, fxRa
           </div>
         </div>
         {items.map((h) => (
-          <TxnRow key={h.id} h={h} priced={priced} fx={fx} prices={prices} simpleMode={simpleMode} onEdit={onEdit} onDelete={(one) => onDelete([one])} />
+          <TxnRow key={h.id} h={h} priced={priced} fx={fx} prices={prices} simpleMode={simpleMode} openSwipe={openSwipe} onOpenSwipeChange={setOpenSwipe} onEdit={onEdit} onDelete={(one) => onDelete([one])} />
         ))}
       </section>
     </div>

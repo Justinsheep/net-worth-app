@@ -176,26 +176,19 @@ body {
 .live-tag { display: inline-block; margin-left: 8px; font-family: var(--font-sans); font-size: 10px; color: var(--accent-ink); background: var(--accent-soft); border-radius: 5px; padding: 1px 6px; vertical-align: middle; }
 .empty { color: var(--faint); font-size: 14px; text-align: center; padding: 44px 12px; line-height: 1.9; }
 
-.agg-row {
-  display: flex; align-items: center; gap: 4px; width: 100%;
-  border-bottom: 1px solid var(--line); border-radius: 8px;
-  transition: background 0.12s ease;
+.symgroup { border-bottom: 1px solid var(--line); }
+.symgroup:last-child { border-bottom: none; }
+.agg-front {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 13px 2px; cursor: pointer; font-family: inherit;
 }
-.agg-row:hover { background: var(--bg-tint); }
-.agg-toggle {
-  display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
-  background: none; border: none; text-align: left; cursor: pointer;
-  padding: 13px 0 13px 2px; font-family: inherit;
-}
-.add-more-btn { flex: none; font-size: 17px; margin-right: 4px; }
+.agg-main { flex: 1; min-width: 0; }
 .chev { color: var(--faint); font-size: 12px; flex: none; min-width: 12px; text-align: center; transition: transform 0.15s ease; }
 .chev.open { transform: rotate(90deg); }
-.agg-main { flex: 1; min-width: 0; }
 .lot-count { color: var(--faint); }
 .lot-list { padding: 2px 0 8px 22px; }
 .row.lot { padding: 9px 0; border-bottom: 1px dashed var(--line); }
 .row.lot:last-child { border-bottom: none; }
-.symgroup:last-child > .agg-row { border-bottom: none; }
 
 .footer { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 24px; }
 .link-btn { background: none; border: none; padding: 0; cursor: pointer; color: var(--accent-ink); font-family: var(--font-sans); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
@@ -316,7 +309,7 @@ body {
   background: color-mix(in srgb, var(--chip-c) 16%, white);
   color: var(--chip-c);
 }
-.agg-row .icon-chip { margin-right: 2px; }
+.agg-front .icon-chip { margin-right: 2px; }
 .bank-name { color: var(--muted); }
 
 .icon-picker {
@@ -422,8 +415,6 @@ body {
   color: var(--accent-ink); font-variant-numeric: tabular-nums; font-weight: 500;
 }
 .agg-toggle:disabled { cursor: default; }
-.agg-row:has(.agg-toggle:disabled) { cursor: default; }
-.agg-row:has(.agg-toggle:disabled):hover { background: none; }
 
 /* ---------- Calculator popup (自製計算機) ---------- */
 .calc-trigger {
@@ -556,3 +547,23 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tour-tip, .tour-mask, .tour-ring { animation: none; transition: none; }
 }
+
+/* ---------- Swipe-to-reveal row actions (Phase 18) ---------- */
+.swipe-row { position: relative; overflow: hidden; border-radius: 8px; }
+.swipe-actions {
+  position: absolute; top: 0; bottom: 0; left: 0; display: flex; align-items: stretch;
+}
+.swipe-action-btn {
+  width: 52px; border: none; background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 17px; cursor: pointer;
+}
+.swipe-action-btn.danger { background: var(--neg); }
+.swipe-front {
+  position: relative; background: var(--card); touch-action: pan-y;
+  display: flex; align-items: center; gap: 10px; width: 100%;
+}
+
+/* 詳細頁交易明細用滑動列 */
+.panel > .swipe-row { border-bottom: 1px dashed var(--line); }
+.panel > .swipe-row:last-child { border-bottom: none; }
+.txn-front { padding: 11px 2px; cursor: pointer; }

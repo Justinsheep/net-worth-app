@@ -3,6 +3,7 @@ import { CATEGORIES, catLabel, catColor, holdingIsCashLike, holdingValueTwd } fr
 import { groupBySymbol, groupDebtBySubtype, groupByBank, DEBT_LABEL } from '../grouping'
 import { fmtTwd, fmtNum, fmtQty, qtyUnit } from '../calc'
 import { IconChip } from '../icons'
+import SwipeRow from './SwipeRow'
 
 // 現金：單筆一列（現金不分組，維持原樣，也沒有詳細頁可點）
 function PlainRow({ h, fx, prices, fxRates, onEdit, onDelete }) {
@@ -23,30 +24,36 @@ function PlainRow({ h, fx, prices, fxRates, onEdit, onDelete }) {
   )
 }
 
-// 股票/加密貨幣現貨、負債子分類、銀行：一個可點進詳細頁的大項列
-function GroupRow({ icon, title, sub, valueTwd, onOpen, onAddMore, onDeleteAll, deleteLabel }) {
+// 股票/加密貨幣現貨、負債子分類、銀行：一個可點進詳細頁的大項列。
+// 往右滑露出「＋加碼」「🗑刪除整組」，平常畫面乾淨、金額靠右對齊。
+function GroupRow({ rowKey, openSwipe, onOpenSwipeChange, icon, title, sub, valueTwd, onOpen, onAddMore, onDeleteAll, deleteLabel }) {
   return (
     <div className="symgroup">
-      <div className="agg-row">
-        <button className="agg-toggle" onClick={onOpen}>
-          {icon}
-          <div className="agg-main">
-            <div className="row-name">{title}</div>
-            <div className="row-sub">{sub}</div>
-          </div>
-          <div className="row-right">
-            <div className={'row-value' + (valueTwd < 0 ? ' neg' : '')}>{fmtTwd(valueTwd)}</div>
-          </div>
-        </button>
-        <button className="icon-btn add-more-btn" onClick={onAddMore} title="加碼" aria-label={`針對 ${deleteLabel} 新增一筆`}>＋</button>
-        <button className="icon-btn danger add-more-btn" onClick={onDeleteAll} title="刪除這一組" aria-label={`刪除 ${deleteLabel} 全部`}>🗑</button>
-      </div>
+      <SwipeRow
+        rowKey={rowKey}
+        openKey={openSwipe}
+        onOpenChange={onOpenSwipeChange}
+        onTap={onOpen}
+        frontClassName="agg-front"
+        actions={[
+          { icon: '＋', label: `針對 ${deleteLabel} 新增一筆`, onClick: onAddMore },
+          { icon: '🗑', label: `刪除 ${deleteLabel} 全部`, danger: true, onClick: onDeleteAll },
+        ]}
+      >
+        {icon}
+        <div className="agg-main">
+          <div className="row-name">{title}</div>
+          <div className="row-sub">{sub}</div>
+        </div>
+        <div className={'row-value' + (valueTwd < 0 ? ' neg' : '')}>{fmtTwd(valueTwd)}</div>
+      </SwipeRow>
     </div>
   )
 }
 
 export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMode, onEdit, onDelete, onDeleteMany, onAddMore, onAddMoreBucket, onOpenDetail }) {
   const [catOpen, setCatOpen] = useState({})
+  const [openSwipe, setOpenSwipe] = useState(null)
   if (!holdings || holdings.length === 0) return null
 
   const toggleCat = (key) => setCatOpen((o) => ({ ...o, [key]: o[key] !== true }))
@@ -73,6 +80,9 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
             return (
               <GroupRow
                 key={'debt:' + subKey}
+                rowKey={'debt:' + subKey}
+                openSwipe={openSwipe}
+                onOpenSwipeChange={setOpenSwipe}
                 icon={<IconChip holding={items[0]} color={catColor(items[0].category)} />}
                 title={label}
                 sub={`${items.length} 筆`}
@@ -92,6 +102,9 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
             return (
               <GroupRow
                 key={'bank:' + bankKey}
+                rowKey={'bank:' + bankKey}
+                openSwipe={openSwipe}
+                onOpenSwipeChange={setOpenSwipe}
                 icon={<IconChip holding={items[0]} color={catColor(items[0].category)} />}
                 title={bankKey}
                 sub={`${items.length} 筆`}
@@ -119,6 +132,9 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
                 return (
                   <GroupRow
                     key={g.key + ':' + symKey}
+                    rowKey={g.key + ':' + symKey}
+                    openSwipe={openSwipe}
+                    onOpenSwipeChange={setOpenSwipe}
                     icon={<IconChip holding={lots[0]} color={catColor(lots[0].category)} />}
                     title={<>{lots[0].name}{lots[0].symbol ? <span className="row-symbol"> · {lots[0].symbol}</span> : null}</>}
                     sub={`${fmtQty(qty)} ${qtyUnit(g.key)}${lots.length > 1 ? ` · ${lots.length} 筆` : ''}`}

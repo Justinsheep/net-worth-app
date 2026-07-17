@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 
 const STEPS = [
   { tab: 'overview', selector: '[data-tour="hero"]', title: '這裡看淨資產', desc: '總覽頁一打開就看到淨資產、資產配置，重點一眼掌握。' },
-  { tab: 'overview', selector: '[data-tour="fab"]', title: '新增資產', desc: '股票、加密貨幣、現金、銀行、負債，都從這顆「＋」開始新增。' },
+  { tab: 'overview', selector: '[data-tour="fab"]', title: '新增資產', desc: '股票、加密貨幣、現金、銀行、負債，都從這顆「＋」開始新增。', round: true },
   { tab: 'holdings', selector: '[data-tour="holdings-panel"]', title: '細項管理', desc: '每個分類可以收合，點進去看交易明細，還能直接加碼或編輯。' },
   { tab: 'trend', selector: '[data-tour="trend-panel"]', title: '資產走勢', desc: '每天自動記一筆，慢慢就能看到資產怎麼成長。' },
   { tab: 'settings', selector: '[data-tour="simple-toggle"]', title: '簡易版與同步', desc: '只想單純記帳可以切成簡易版；登入 Google 還能跨裝置同步。' },
@@ -55,7 +55,13 @@ export default function SpotlightTour({ activeTab, onNavigate, onFinish }) {
   }, [stepIdx]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hole = rect
-    ? { top: rect.top - PAD, left: rect.left - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2 }
+    ? {
+        top: rect.top - (step.round ? 3 : PAD),
+        left: rect.left - (step.round ? 3 : PAD),
+        width: rect.width + (step.round ? 6 : PAD * 2),
+        height: rect.height + (step.round ? 6 : PAD * 2),
+        round: !!step.round,
+      }
     : null
 
   // 提示框先「隱形」渲染一次量出自己的實際寬高，量完才夾在螢幕範圍內定位——
@@ -95,7 +101,7 @@ export default function SpotlightTour({ activeTab, onNavigate, onFinish }) {
           <div className="tour-mask" style={{ top: hole.top + hole.height, left: 0, right: 0, bottom: 0 }} />
           <div className="tour-mask" style={{ top: hole.top, left: 0, width: Math.max(hole.left, 0), height: hole.height }} />
           <div className="tour-mask" style={{ top: hole.top, left: hole.left + hole.width, right: 0, height: hole.height }} />
-          <div className="tour-ring" style={{ top: hole.top, left: hole.left, width: hole.width, height: hole.height }} />
+          <div className="tour-ring" style={{ top: hole.top, left: hole.left, width: hole.width, height: hole.height, borderRadius: hole.round ? '50%' : undefined }} />
           <div className="tour-block" style={{ top: hole.top, left: hole.left, width: hole.width, height: hole.height }} />
         </>
       ) : (
