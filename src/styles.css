@@ -218,6 +218,7 @@ body {
 .symsearch { position: relative; }
 .symsearch > input { width: 100%; }
 .symsearch-list { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 5px); list-style: none; margin: 0; padding: 5px; background: #fff; border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 14px 34px -14px rgba(15, 60, 50, 0.35); max-height: 240px; overflow-y: auto; }
+.symsearch-list-portal { z-index: 70; right: auto; }
 .symsearch-list li { display: flex; align-items: baseline; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
 .symsearch-list li:hover { background: var(--accent-soft); }
 .sym-code { font-family: var(--font-mono); font-size: 13px; color: var(--ink); min-width: 64px; }

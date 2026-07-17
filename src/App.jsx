@@ -75,7 +75,8 @@ export default function App() {
   const scrollAnchorRef = useRef(0) // 上次「決定要不要收起」時的捲動位置，滑動要離這裡夠遠才會再次切換
 
   // 往下滑自動收起底部選單與＋，往上滑或接近頂部就恢復。
-  // 用「錨點」而非逐次比較，避免手機慣性捲動的小抖動被誤判成改變方向。
+  // 用「錨點」而非逐次比較，避免手機慣性捲動的小抖動被誤判成改變方向；
+  // 另外偵測「捲動位置超出頁面實際範圍」＝正在觸底回彈，回彈期間忽略，避免誤觸發跳出來。
   useEffect(() => {
     let ticking = false
     function onScroll() {
@@ -83,18 +84,22 @@ export default function App() {
       ticking = true
       requestAnimationFrame(() => {
         const y = window.scrollY
-        const THRESHOLD = 28
-        if (y < 40) {
-          setNavHidden(false)
-          scrollAnchorRef.current = y
-        } else {
-          const delta = y - scrollAnchorRef.current
-          if (delta > THRESHOLD) {
-            setNavHidden(true)
-            scrollAnchorRef.current = y
-          } else if (delta < -THRESHOLD) {
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+        const bouncing = y < 0 || y > maxScroll - 1 // 回彈時位置會超出實際內容範圍
+        if (!bouncing) {
+          const THRESHOLD = 28
+          if (y < 40) {
             setNavHidden(false)
             scrollAnchorRef.current = y
+          } else {
+            const delta = y - scrollAnchorRef.current
+            if (delta > THRESHOLD) {
+              setNavHidden(true)
+              scrollAnchorRef.current = y
+            } else if (delta < -THRESHOLD) {
+              setNavHidden(false)
+              scrollAnchorRef.current = y
+            }
           }
         }
         ticking = false

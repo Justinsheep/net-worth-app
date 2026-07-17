@@ -125,7 +125,13 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
 
   // ---- 第二步：細分類 ----
   const pickSubtype = (subtype) => { set('subtype', subtype); setStep(3) }
-  const pickDebtType = (key) => { setForm((f) => ({ ...f, subtype: key, name: f.name || DEBT_LABEL[key] })); setStep(3) }
+  const pickDebtType = (key) => {
+    setForm((f) => {
+      const wasAutoFilled = f.name === '' || f.name === DEBT_LABEL[f.subtype]
+      return { ...f, subtype: key, name: wasAutoFilled ? DEBT_LABEL[key] : f.name }
+    })
+    setStep(3)
+  }
   const pickBank = (name) => { set('bankName', name); setStep(3) }
 
   function pickSymbol(code, name) {
