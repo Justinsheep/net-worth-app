@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CATEGORIES, isCashLike, catDefaultCurrency, catColor, quoteCurrencyOf, isStablecoin, priceKey } from '../calc'
 import { fetchOneCryptoPrice } from '../prices'
 import { CASH_CURRENCIES } from '../currencies'
@@ -7,6 +7,98 @@ import { IconGlyph } from '../icons'
 import SymbolSearch from './SymbolSearch'
 import BankSearch from './BankSearch'
 import IconPicker from './IconPicker'
+
+// 安全的算式計算：只認數字和 + - * / ( )，用遞迴下降解析，不使用 eval。
+// 解析失敗回傳 null。
+function evalExpr(input) {
+  const s = String(input ?? '')
+  if (!/^[0-9+\-*/(). ]*$/.test(s)) return null
+  let i = 0
+  const skip = () => { while (s[i] === ' ') i++ }
+  function expr() {
+    let v = term(); if (v == null) return null; skip()
+    while (s[i] === '+' || s[i] === '-') {
+      const op = s[i++]; const t = term(); if (t == null) return null
+      v = op === '+' ? v + t : v - t; skip()
+    }
+    return v
+  }
+  function term() {
+    let v = factor(); if (v == null) return null; skip()
+    while (s[i] === '*' || s[i] === '/') {
+      const op = s[i++]; const f = factor(); if (f == null) return null
+      v = op === '*' ? v * f : v / f; skip()
+    }
+    return v
+  }
+  function factor() {
+    skip()
+    if (s[i] === '(') { i++; const v = expr(); skip(); if (s[i] !== ')') return null; i++; return v }
+    if (s[i] === '-') { i++; const f = factor(); return f == null ? null : -f }
+    if (s[i] === '+') { i++; return factor() }
+    const start = i
+    while (/[0-9.]/.test(s[i] || '')) i++
+    if (i === start) return null
+    const n = Number(s.slice(start, i))
+    return Number.isFinite(n) ? n : null
+  }
+  const r = expr(); skip()
+  if (i !== s.length) return null
+  return r == null || !Number.isFinite(r) ? null : r
+}
+
+const initRaw = (v) => (v == null || v === '' ? '' : String(v))
+
+// 可以直接打算式的數字輸入格：例如打 26912-14942，失焦或按 Enter 自動算成 11970。
+// 手機聚焦時下方會浮出 + − × ÷ 按鈕（數字鍵盤沒有運算符），並即時顯示 = 結果。
+function CalcInput({ value, onCommit, placeholder }) {
+  const ref = useRef(null)
+  const [raw, setRaw] = useState(initRaw(value))
+  const [focused, setFocused] = useState(false)
+
+  useEffect(() => { if (!focused) setRaw(initRaw(value)) }, [value, focused])
+
+  const hasOp = /[+\-*/()]/.test(raw.slice(1)) // 排除單一負號開頭
+  const preview = hasOp ? evalExpr(raw) : null
+
+  function commit() {
+    const r = evalExpr(raw)
+    if (r != null) { setRaw(String(r)); onCommit(String(r)) }
+    setFocused(false)
+  }
+
+  function insert(ch) {
+    const el = ref.current
+    if (!el) { setRaw(raw + ch); return }
+    const a = el.selectionStart ?? raw.length
+    const b = el.selectionEnd ?? raw.length
+    const next = raw.slice(0, a) + ch + raw.slice(b)
+    setRaw(next)
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(a + 1, a + 1) })
+  }
+
+  return (
+    <div className="calc-input">
+      <input
+        ref={ref} type="text" inputMode="decimal" value={raw} placeholder={placeholder}
+        onFocus={() => setFocused(true)}
+        onChange={(e) => setRaw(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ref.current?.blur() } }}
+      />
+      {focused && (
+        <div className="calc-ops">
+          {[['+', '+'], ['-', '−'], ['*', '×'], ['/', '÷']].map(([op, label]) => (
+            <button key={op} type="button" className="calc-op" onMouseDown={(e) => { e.preventDefault(); insert(op) }}>{label}</button>
+          ))}
+          {preview != null && String(preview) !== raw && (
+            <span className="calc-preview">= {preview.toLocaleString('en-US', { maximumFractionDigits: 8 })}</span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const blank = {
   category: 'tw_stock', subtype: '', name: '', symbol: '', bankName: '',
@@ -245,12 +337,12 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, on
             <div className="field-row">
               <label className="field">
                 <span>{treatAsCashLike ? '金額' : isStable ? '數量（顆）' : '數量（股/顆）'}</span>
-                <input type="number" inputMode="decimal" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="0" />
+                <CalcInput value={form.quantity} onCommit={(v) => set('quantity', v)} placeholder="0" />
               </label>
               {showManualPrice && (
                 <label className="field">
                   <span>現價（{quoteCurrencyOf(form.category)}）</span>
-                  <input type="number" inputMode="decimal" value={form.price} onChange={(e) => set('price', e.target.value)} placeholder="抓不到報價，請手動填" />
+                  <CalcInput value={form.price} onCommit={(v) => set('price', v)} placeholder="抓不到報價，請手動填" />
                 </label>
               )}
               {treatAsCashLike && (
@@ -285,7 +377,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, on
                         <div className="field-row">
                           <label className="field">
                             <span>總投入成本</span>
-                            <input type="number" inputMode="decimal" value={form.totalCost} onChange={(e) => set('totalCost', e.target.value)} placeholder="這筆總共花多少" />
+                            <CalcInput value={form.totalCost} onCommit={(v) => set('totalCost', v)} placeholder="這筆總共花多少" />
                           </label>
                           <label className="field currency-field">
                             <span>成本幣別</span>

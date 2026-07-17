@@ -32,7 +32,7 @@ export const store = {
 
   // ---- 已刪除（垃圾桶）----
   async listDeleted() {
-    return db.holdings.filter((h) => !!h.deleted).toArray()
+    return db.holdings.filter((h) => !!h.deleted && !h.purged).toArray()
   },
   async restoreHolding(id) {
     await db.holdings.update(id, { deleted: false, updatedAt: Date.now() })
@@ -43,10 +43,14 @@ export const store = {
       for (const id of ids) await db.holdings.update(id, { deleted: false, updatedAt: now })
     })
   },
-  // 永久刪除（本機硬刪除）。雲端那份要另外呼叫 sync.js 的 purgeHoldingsRemote 清掉，
-  // 不然下次同步會把雲端還在的那筆拉回來。
+  // 永久刪除：改成標記 purged 墓碑（deleted+purged），並更新時間一起同步。
+  // 不能直接硬刪本機/雲端——否則另一台裝置上那筆還在，會被誤認為「它獨有的新資料」而重新上傳，導致復活。
+  // purged 的資料在垃圾桶和正常列表都不會顯示，等於徹底消失，但墓碑會通知所有裝置一起清掉。
   async purgeHoldings(ids) {
-    await db.holdings.bulkDelete(ids)
+    const now = Date.now()
+    await db.transaction('rw', db.holdings, async () => {
+      for (const id of ids) await db.holdings.update(id, { deleted: true, purged: true, updatedAt: now })
+    })
   },
 
   // ---- 設定（例如 USD/TWD 匯率）----

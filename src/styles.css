@@ -404,3 +404,19 @@ body {
 }
 .change-chip.pos { color: var(--pos); background: var(--pos-soft); }
 .change-chip.neg { color: var(--neg); background: var(--neg-soft); }
+
+/* ---------- Calc input (算式輸入) ---------- */
+.calc-input { position: relative; }
+.calc-input > input { width: 100%; }
+.calc-ops { display: flex; align-items: center; gap: 5px; margin-top: 6px; }
+.calc-op {
+  border: 1px solid var(--line-strong); background: #fff; color: var(--ink);
+  border-radius: 8px; width: 36px; height: 32px; font-size: 16px; line-height: 1; cursor: pointer;
+  font-family: var(--font-mono); transition: background 0.1s ease;
+}
+.calc-op:hover { background: var(--bg-tint); }
+.calc-op:active { background: var(--accent-soft); }
+.calc-preview {
+  margin-left: auto; font-family: var(--font-mono); font-size: 13px;
+  color: var(--accent-ink); font-variant-numeric: tabular-nums; font-weight: 500;
+}

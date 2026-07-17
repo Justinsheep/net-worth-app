@@ -5,7 +5,7 @@ import { store } from './store'
 import { summarize, summarizePnl, fmtTwd, fmtPct, fmtSignedTwd } from './calc'
 import { loadPrices } from './prices'
 import { supabase, supabaseEnabled } from './supabase'
-import { syncNow, wipeCloud, purgeHoldingsRemote } from './sync'
+import { syncNow, wipeCloud } from './sync'
 import AllocationChart from './components/AllocationChart'
 import TrendChart from './components/TrendChart'
 import HoldingForm from './components/HoldingForm'
@@ -43,7 +43,7 @@ export default function App() {
   )
   const snapshots = useLiveQuery(() => db.snapshots.orderBy('date').toArray(), [], [])
   const deletedHoldings = useLiveQuery(
-    () => db.holdings.orderBy('updatedAt').reverse().filter((h) => !!h.deleted).toArray(),
+    () => db.holdings.orderBy('updatedAt').reverse().filter((h) => !!h.deleted && !h.purged).toArray(),
     [], []
   )
   const [tab, setTab] = useState('overview')
@@ -214,8 +214,9 @@ export default function App() {
     await store.restoreHoldings(ids)
   }
   async function purgeHoldings(ids) {
+    // 留下 purged 墓碑並靠正常同步傳播，讓兩台裝置都乾淨清掉、且不會有任何一台把它當新資料重新上傳
     await store.purgeHoldings(ids)
-    if (session) await purgeHoldingsRemote(session.user.id, ids)
+    if (session) syncNow(session.user.id)
   }
 
   async function exportData() {
