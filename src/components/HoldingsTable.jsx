@@ -136,8 +136,8 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
                     openSwipe={openSwipe}
                     onOpenSwipeChange={setOpenSwipe}
                     icon={<IconChip holding={lots[0]} color={catColor(lots[0].category)} />}
-                    title={<>{lots[0].name}{lots[0].symbol ? <span className="row-symbol"> · {lots[0].symbol}</span> : null}</>}
-                    sub={`${fmtQty(qty)} ${qtyUnit(g.key)}${lots.length > 1 ? ` · ${lots.length} 筆` : ''}`}
+                    title={lots[0].name}
+                    sub={`${fmtQty(qty)} ${qtyUnit(g.key)}`}
                     valueTwd={total}
                     deleteLabel={lots[0].name}
                     onOpen={() => onOpenDetail({ kind: 'symbol', category: g.key, symbol: symKey, label: lots[0].name })}

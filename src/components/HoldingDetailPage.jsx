@@ -25,8 +25,10 @@ function TxnRow({ h, priced, fx, prices, simpleMode, openSwipe, onOpenSwipeChang
         <div className="row-main">
           <div className="row-sub">
             {h.buyDate ? <span className="buy-date">{h.buyDate}</span> : <span className="buy-date">未填日期</span>}
-            {fmtQty(h.quantity)} {qtyUnit(h.category)} × {fmtNum(unit)} {quoteCurrencyOf(h.category)}
             {live && <span className="live-tag">即時</span>}
+          </div>
+          <div className="row-sub">
+            {fmtQty(h.quantity)} {qtyUnit(h.category)} × {fmtNum(unit)} {quoteCurrencyOf(h.category)}
           </div>
         </div>
         <div className="row-right">
