@@ -70,6 +70,22 @@ export default function App() {
   const [detailKey, setDetailKey] = useState(null)
   const [changePct, setChangePct] = useState({})
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [navHidden, setNavHidden] = useState(false)
+  const lastScrollY = useRef(0)
+
+  // 往下滑自動收起底部選單與＋，往上滑或接近頂部就恢復
+  useEffect(() => {
+    function onScroll() {
+      const y = window.scrollY
+      const delta = y - lastScrollY.current
+      if (y < 40) setNavHidden(false)
+      else if (delta > 8) setNavHidden(true)
+      else if (delta < -8) setNavHidden(false)
+      lastScrollY.current = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
   const prevTabIndexRef = useRef(0)
   const prevDetailRef = useRef(null)
   const slideDir = TAB_ORDER.indexOf(tab) >= prevTabIndexRef.current ? 'fwd' : 'back'
@@ -293,6 +309,8 @@ export default function App() {
   const updatedTime = priceMeta.updatedAt
     ? new Date(priceMeta.updatedAt).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
     : '—'
+  // 底部選單與＋只在四個主分頁出現，進到詳細頁或往下滑時收起
+  const chromeHidden = navHidden || (tab === 'holdings' && !!detailKey)
 
   return (
     <div className="app">
@@ -511,13 +529,13 @@ export default function App() {
         )}
       </main>
 
-      <button className="fab" data-tour="fab" onClick={openAdd} aria-label="新增持倉或負債">
+      <button className={'fab' + (chromeHidden ? ' chrome-hidden' : '')} data-tour="fab" onClick={openAdd} aria-label="新增持倉或負債">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
           <path d="M12 4v16M4 12h16" />
         </svg>
       </button>
 
-      <nav className="tabbar">
+      <nav className={'tabbar' + (chromeHidden ? ' chrome-hidden' : '')}>
         {TABS.map((t) => (
           <button key={t.key} className={'tabbar-btn' + (tab === t.key ? ' on' : '')} onClick={() => { setTab(t.key); if (t.key !== 'holdings') setDetailKey(null) }}>
             <span className="tabbar-icon">{t.icon}</span>

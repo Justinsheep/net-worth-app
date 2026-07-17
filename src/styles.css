@@ -259,12 +259,13 @@ body {
 
 /* ---------- Bottom tab bar + FAB (Phase 7) ---------- */
 .tabbar {
-  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%) translateY(0);
   display: flex; gap: 2px; width: calc(100% - 32px); max-width: 420px;
   background: var(--card); border: 1px solid var(--line); border-radius: 18px;
   padding: 6px; box-shadow: 0 16px 40px -18px rgba(15, 60, 50, 0.35);
-  z-index: 30;
+  z-index: 30; transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
 }
+.tabbar.chrome-hidden { transform: translateX(-50%) translateY(140%); opacity: 0; pointer-events: none; }
 .tabbar-btn {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
   border: none; background: transparent; color: var(--faint); cursor: pointer;
@@ -281,10 +282,11 @@ body {
   display: flex; align-items: center; justify-content: center;
   background: var(--accent); color: #fff;
   cursor: pointer; box-shadow: 0 10px 24px -8px rgba(15, 181, 163, 0.6);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease, box-shadow 0.12s ease;
 }
 .fab:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 14px 28px -8px rgba(15, 181, 163, 0.7); }
 .fab:active { transform: scale(0.96); }
+.fab.chrome-hidden { transform: translateY(140%); opacity: 0; pointer-events: none; }
 
 /* ---------- Settings rows (Phase 7) ---------- */
 .settings-row {
@@ -567,3 +569,7 @@ body {
 .panel > .swipe-row { border-bottom: 1px dashed var(--line); }
 .panel > .swipe-row:last-child { border-bottom: none; }
 .txn-front { padding: 11px 2px; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) {
+  .tabbar, .fab { transition: opacity 0.2s ease; }
+  .tabbar.chrome-hidden, .fab.chrome-hidden { transform: none; }
+}
