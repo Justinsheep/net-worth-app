@@ -26,6 +26,7 @@ const isTwCode = (c) => /^\d{4,6}[A-Z]?$/.test(c)
 async function twData() {
   const symbols = []
   const prices = {}
+  const chg = {} // 漲跌幅（小數，例：0.023 = +2.3%）；抓不到就不寫入，前端顯示「—」
   const seen = new Set()
   const add = (code, name, price) => {
     code = String(code || '').trim()
@@ -56,14 +57,30 @@ async function twData() {
         const ci = f.findIndex((x) => String(x).includes('證券代號'))
         const ni = f.findIndex((x) => String(x).includes('證券名稱'))
         const pi = f.findIndex((x) => String(x).includes('收盤價'))
+        // 漲跌價差＝變動金額（無號），漲跌(+/-)＝正負號欄。兩者都找到才算漲跌幅，
+        // 找不到就跳過（該檔今日變動前端會顯示「—」，不會顯示錯的數字）。
+        const di = f.findIndex((x) => String(x).includes('漲跌價差'))
+        const si = f.findIndex((x) => String(x).includes('(+/-)'))
         if (ci === -1 || pi === -1) continue
         for (const row of t.data || []) {
-          add(row[ci], ni >= 0 ? row[ni] : '', num(row[pi]))
-          if (num(row[pi]) != null) miCount++
+          const code = String(row[ci] || '').trim()
+          const close = num(row[pi])
+          add(code, ni >= 0 ? row[ni] : '', close)
+          if (close != null) miCount++
+          if (di !== -1 && si !== -1 && close != null) {
+            const diff = num(row[di])
+            const signRaw = String(row[si] ?? '').trim()
+            const sign = signRaw.includes('-') ? -1 : signRaw.includes('+') ? 1 : 0
+            if (diff != null && sign !== 0) {
+              const amount = diff * sign
+              const prevClose = close - amount
+              if (prevClose > 0) chg[code] = amount / prevClose
+            }
+          }
         }
       }
     }
-    console.log('MI_INDEX 收盤價：', miCount, '筆')
+    console.log('MI_INDEX 收盤價：', miCount, '筆　漲跌幅：', Object.keys(chg).length, '筆')
   } catch (e) {
     console.warn('MI_INDEX 失敗：', e.message)
   }
@@ -94,7 +111,7 @@ async function twData() {
   }
 
   symbols.sort((a, b) => a.code.localeCompare(b.code))
-  return { symbols, prices }
+  return { symbols, prices, chg }
 }
 
 const CRYPTO_NAMES = {
@@ -143,11 +160,11 @@ async function main() {
   )
   await fs.writeFile(
     path.join(root, 'public', 'prices.json'),
-    JSON.stringify({ updatedAt: now, tw_stock: tw.prices }, null, 2)
+    JSON.stringify({ updatedAt: now, tw_stock: tw.prices, tw_stock_chg: tw.chg }, null, 2)
   )
 
   console.log(`已寫入 symbols.json（台股 ${tw.symbols.length} 檔、加密貨幣 ${crypto.length} 種）`)
-  console.log(`已寫入 prices.json（台股報價 ${Object.keys(tw.prices).length} 檔）`)
+  console.log(`已寫入 prices.json（台股報價 ${Object.keys(tw.prices).length} 檔、漲跌幅 ${Object.keys(tw.chg).length} 檔）`)
 }
 
 main().catch((e) => {

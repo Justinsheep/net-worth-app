@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { catLabel, catColor, holdingValueTwd, fmtTwd, fmtNum } from '../calc'
-import { IconGlyph } from '../icons'
+import { IconChip } from '../icons'
 
 export default function DeletedPanel({ items, fx, prices, fxRates, onRestore, onPurge }) {
   const [selected, setSelected] = useState(new Set())
@@ -47,9 +47,7 @@ export default function DeletedPanel({ items, fx, prices, fxRates, onRestore, on
           return (
             <div className="row trash-row" key={h.id}>
               <input type="checkbox" checked={selected.has(h.id)} onChange={() => toggle(h.id)} />
-              <span className="icon-chip" style={{ '--chip-c': catColor(h.category) }}>
-                <IconGlyph name={h.icon} category={h.category} subtype={h.subtype} />
-              </span>
+              <IconChip holding={h} color={catColor(h.category)} />
               <div className="row-main">
                 <div className="row-name">{h.name}</div>
                 <div className="row-sub">

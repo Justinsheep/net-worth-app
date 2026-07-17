@@ -10,6 +10,7 @@ import AllocationChart from './components/AllocationChart'
 import TrendChart from './components/TrendChart'
 import HoldingForm from './components/HoldingForm'
 import HoldingsTable from './components/HoldingsTable'
+import HoldingDetailPage from './components/HoldingDetailPage'
 import ConfirmClearModal from './components/ConfirmClearModal'
 import DeletedPanel from './components/DeletedPanel'
 
@@ -63,6 +64,8 @@ export default function App() {
   const [trashOpen, setTrashOpen] = useState(false)
   const [symbolPrefs, setSymbolPrefs] = useState({})
   const [simpleMode, setSimpleMode] = useState(false)
+  const [detailKey, setDetailKey] = useState(null)
+  const [changePct, setChangePct] = useState({})
 
   // 讀取上次存的匯率與自動/手動設定
   useEffect(() => {
@@ -131,6 +134,7 @@ export default function App() {
     try {
       const r = await loadPrices(holdings)
       setPrices(r.prices)
+      setChangePct(r.changePct || {})
       setPriceMeta({ updatedAt: new Date().toISOString(), stockUpdatedAt: r.stockUpdatedAt, errors: r.errors })
       if (r.fxRates) setFxRates(r.fxRates)
       if (fxAuto && r.fxUsdTwd) {
@@ -217,6 +221,12 @@ export default function App() {
     if (confirm(`刪除「${label}」底下全部 ${ids.length} 筆？（可以之後在設定的「已刪除」復原）`)) {
       await store.deleteHoldings(ids)
     }
+  }
+  // 詳細頁的刪除：陣列只有 1 筆時當單筆刪除，多筆時當整組刪除（沿用同一套確認流程）
+  async function detailDelete(list) {
+    if (!list?.length) return
+    if (list.length === 1) return remove(list[0])
+    return removeMany(list.map((h) => h.id), detailKey?.label || '這組')
   }
   async function restoreHoldings(ids) {
     await store.restoreHoldings(ids)
@@ -336,16 +346,25 @@ export default function App() {
         )}
 
         {tab === 'holdings' && (
-          <section className="panel">
-            <h3 className="panel-title">持倉明細</h3>
-            {holdings.length === 0 ? (
-              <div className="empty">
-                還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
-              </div>
-            ) : (
-              <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} onEdit={openEdit} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} />
-            )}
-          </section>
+          detailKey ? (
+            <HoldingDetailPage
+              groupKey={detailKey} holdings={holdings} fx={fx} prices={prices} fxRates={fxRates}
+              changePct={changePct} simpleMode={simpleMode}
+              onBack={() => setDetailKey(null)} onEdit={openEdit} onDelete={detailDelete}
+              onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket}
+            />
+          ) : (
+            <section className="panel">
+              <h3 className="panel-title">持倉明細</h3>
+              {holdings.length === 0 ? (
+                <div className="empty">
+                  還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
+                </div>
+              ) : (
+                <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} onEdit={openEdit} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onOpenDetail={setDetailKey} />
+              )}
+            </section>
+          )
         )}
 
         {tab === 'trend' && (
@@ -480,7 +499,7 @@ export default function App() {
 
       <nav className="tabbar">
         {TABS.map((t) => (
-          <button key={t.key} className={'tabbar-btn' + (tab === t.key ? ' on' : '')} onClick={() => setTab(t.key)}>
+          <button key={t.key} className={'tabbar-btn' + (tab === t.key ? ' on' : '')} onClick={() => { setTab(t.key); if (t.key !== 'holdings') setDetailKey(null) }}>
             <span className="tabbar-icon">{t.icon}</span>
             <span className="tabbar-label">{t.label}</span>
           </button>

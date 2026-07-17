@@ -69,3 +69,12 @@ export function IconGlyph({ name, category, subtype, className }) {
   const Render = ICON_DEFS[key]
   return <span className={className}><Render /></span>
 }
+
+// 帶分類色底的圖示色塊，列表/垃圾桶/詳細頁共用，需要 catColor 所以由呼叫端傳入 color
+export function IconChip({ holding, color }) {
+  return (
+    <span className="icon-chip" style={{ '--chip-c': color }}>
+      <IconGlyph name={holding.icon} category={holding.category} subtype={holding.subtype} />
+    </span>
+  )
+}
