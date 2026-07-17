@@ -13,6 +13,7 @@ import HoldingsTable from './components/HoldingsTable'
 import HoldingDetailPage from './components/HoldingDetailPage'
 import ConfirmClearModal from './components/ConfirmClearModal'
 import DeletedPanel from './components/DeletedPanel'
+import OnboardingModal from './components/OnboardingModal'
 
 const REFRESH_MS = 60_000 // 每 60 秒自動更新一次報價
 
@@ -66,6 +67,7 @@ export default function App() {
   const [simpleMode, setSimpleMode] = useState(false)
   const [detailKey, setDetailKey] = useState(null)
   const [changePct, setChangePct] = useState({})
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   // 讀取上次存的匯率與自動/手動設定
   useEffect(() => {
@@ -73,12 +75,17 @@ export default function App() {
     store.getSetting('fxAuto', true).then(setFxAuto)
     store.getSetting('symbolPrefs', {}).then((v) => setSymbolPrefs(v || {}))
     store.getSetting('simpleMode', false).then((v) => setSimpleMode(!!v))
+    store.getSetting('onboarded', false).then((v) => setShowOnboarding(!v))
   }, [])
 
   function toggleSimpleMode() {
     const next = !simpleMode
     setSimpleMode(next)
     store.setSetting('simpleMode', next)
+  }
+  function finishOnboarding() {
+    setShowOnboarding(false)
+    store.setSetting('onboarded', true)
   }
 
   // 新增/編輯面板開啟時鎖住背景捲動，避免面板位置隨頁面高度跑掉
@@ -290,7 +297,7 @@ export default function App() {
 
       <main className="tab-content">
         {tab === 'overview' && (
-          <>
+          <div className="page-fade">
             <section className="hero">
               <div className="hero-label">淨資產</div>
               <div className={'hero-value' + (netWorth < 0 ? ' neg' : '')}>{fmtTwd(netWorth)}</div>
@@ -342,7 +349,7 @@ export default function App() {
               <h3 className="panel-title">資產配置</h3>
               <AllocationChart byCat={byCat} />
             </section>
-          </>
+          </div>
         )}
 
         {tab === 'holdings' && (
@@ -354,7 +361,7 @@ export default function App() {
               onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket}
             />
           ) : (
-            <section className="panel">
+            <section className="panel page-fade">
               <h3 className="panel-title">持倉明細</h3>
               {holdings.length === 0 ? (
                 <div className="empty">
@@ -368,7 +375,7 @@ export default function App() {
         )}
 
         {tab === 'trend' && (
-          <section className="panel trend">
+          <section className="panel trend page-fade">
             <div className="trend-head">
               <h3 className="panel-title">資產走勢</h3>
               <div className="seg">
@@ -381,7 +388,7 @@ export default function App() {
         )}
 
         {tab === 'settings' && (
-          <>
+          <div className="page-fade">
             <section className="panel">
               <h3 className="panel-title">顯示模式</h3>
               <div className="settings-row">
@@ -490,8 +497,9 @@ export default function App() {
 
             <p className="footer-note settings-footnote">
               資料存在這台裝置的瀏覽器裡（IndexedDB）{session ? '，並與雲端同步。' : '。'}
+              　<button className="link-btn" onClick={() => setShowOnboarding(true)}>重新看新手介紹</button>
             </p>
-          </>
+          </div>
         )}
       </main>
 
@@ -529,6 +537,7 @@ export default function App() {
           </div>
         </div>
       )}
+      {showOnboarding && <OnboardingModal onFinish={finishOnboarding} />}
     </div>
   )
 }
