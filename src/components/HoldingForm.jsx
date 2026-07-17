@@ -4,48 +4,11 @@ import { fetchOneCryptoPrice } from '../prices'
 import { CASH_CURRENCIES } from '../currencies'
 import { DEBT_TYPES } from '../debtTypes'
 import { IconGlyph } from '../icons'
+import { evalExpr } from '../calcExpr'
 import SymbolSearch from './SymbolSearch'
 import BankSearch from './BankSearch'
 import IconPicker from './IconPicker'
-
-// 安全的算式計算：只認數字和 + - * / ( )，用遞迴下降解析，不使用 eval。
-// 解析失敗回傳 null。
-function evalExpr(input) {
-  const s = String(input ?? '')
-  if (!/^[0-9+\-*/(). ]*$/.test(s)) return null
-  let i = 0
-  const skip = () => { while (s[i] === ' ') i++ }
-  function expr() {
-    let v = term(); if (v == null) return null; skip()
-    while (s[i] === '+' || s[i] === '-') {
-      const op = s[i++]; const t = term(); if (t == null) return null
-      v = op === '+' ? v + t : v - t; skip()
-    }
-    return v
-  }
-  function term() {
-    let v = factor(); if (v == null) return null; skip()
-    while (s[i] === '*' || s[i] === '/') {
-      const op = s[i++]; const f = factor(); if (f == null) return null
-      v = op === '*' ? v * f : v / f; skip()
-    }
-    return v
-  }
-  function factor() {
-    skip()
-    if (s[i] === '(') { i++; const v = expr(); skip(); if (s[i] !== ')') return null; i++; return v }
-    if (s[i] === '-') { i++; const f = factor(); return f == null ? null : -f }
-    if (s[i] === '+') { i++; return factor() }
-    const start = i
-    while (/[0-9.]/.test(s[i] || '')) i++
-    if (i === start) return null
-    const n = Number(s.slice(start, i))
-    return Number.isFinite(n) ? n : null
-  }
-  const r = expr(); skip()
-  if (i !== s.length) return null
-  return r == null || !Number.isFinite(r) ? null : r
-}
+import NumberPad from './NumberPad'
 
 const initRaw = (v) => (v == null || v === '' ? '' : String(v))
 
@@ -114,6 +77,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
   const [form, setForm] = useState(blank)
   const [moreOpen, setMoreOpen] = useState(false)
   const [priceIsLive, setPriceIsLive] = useState(false)
+  const [padOpen, setPadOpen] = useState(false)
 
   useEffect(() => {
     if (editing) {
@@ -337,7 +301,9 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
             <div className="field-row">
               <label className="field">
                 <span>{treatAsCashLike ? '金額' : isStable ? '數量（顆）' : '數量（股/顆）'}</span>
-                <CalcInput value={form.quantity} onCommit={(v) => set('quantity', v)} placeholder="0" />
+                <button type="button" className="calc-trigger" onClick={() => setPadOpen(true)}>
+                  {form.quantity !== '' ? form.quantity : <span className="calc-trigger-placeholder">點一下輸入</span>}
+                </button>
               </label>
               {showManualPrice && (
                 <label className="field">
@@ -425,6 +391,15 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
           </>
         )}
       </div>
+
+      {padOpen && (
+        <NumberPad
+          title={treatAsCashLike ? '金額' : '數量'}
+          value={form.quantity}
+          onCommit={(v) => set('quantity', v)}
+          onClose={() => setPadOpen(false)}
+        />
+      )}
     </div>
   )
 }

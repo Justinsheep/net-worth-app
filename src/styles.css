@@ -423,3 +423,45 @@ body {
 .agg-toggle:disabled { cursor: default; }
 .agg-row:has(.agg-toggle:disabled) { cursor: default; }
 .agg-row:has(.agg-toggle:disabled):hover { background: none; }
+
+/* ---------- Calculator popup (自製計算機) ---------- */
+.calc-trigger {
+  width: 100%; text-align: left; border: 1px solid var(--line-strong); border-radius: 10px;
+  padding: 10px 11px; font-size: 14px; font-family: var(--font-mono); color: var(--ink);
+  background: #fff; cursor: pointer; font-variant-numeric: tabular-nums;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.calc-trigger:hover { background: var(--bg-tint); }
+.calc-trigger:active { border-color: var(--accent); }
+.calc-trigger-placeholder { color: var(--faint); font-family: var(--font-sans); }
+
+.numpad {
+  background: var(--card); border-radius: 18px; width: 100%; max-width: 340px;
+  padding: 18px 18px 20px; box-shadow: 0 20px 60px -20px rgba(15, 60, 50, 0.4); animation: rise 0.2s ease both;
+}
+.numpad-display {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  background: var(--bg-tint); border-radius: 12px; padding: 16px 14px; margin-bottom: 12px; min-height: 64px;
+}
+.numpad-expr {
+  font-family: var(--font-mono); font-size: 26px; color: var(--ink); font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere; text-align: right;
+}
+.numpad-preview {
+  font-family: var(--font-mono); font-size: 13px; color: var(--accent-ink); font-variant-numeric: tabular-nums;
+}
+.numpad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.numpad-key {
+  border: 1px solid var(--line-strong); background: #fff; color: var(--ink);
+  border-radius: 12px; padding: 14px 0; font-family: var(--font-mono); font-size: 18px; cursor: pointer;
+  transition: background 0.1s ease;
+}
+.numpad-key:hover { background: var(--bg-tint); }
+.numpad-key:active { background: var(--accent-soft); }
+.numpad-key.op { color: var(--accent-ink); font-weight: 600; }
+.numpad-key.fn { color: var(--muted); font-size: 16px; }
+.numpad-clear {
+  width: 100%; margin-top: 8px; border: none; background: none; color: var(--faint);
+  font-family: var(--font-sans); font-size: 12px; padding: 6px; cursor: pointer;
+}
+.numpad-clear:hover { color: var(--neg); }
