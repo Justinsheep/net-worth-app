@@ -51,12 +51,11 @@ function GroupRow({ rowKey, openSwipe, onOpenSwipeChange, icon, title, sub, valu
   )
 }
 
-export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMode, onEdit, onDelete, onDeleteMany, onAddMore, onAddMoreBucket, onOpenDetail }) {
-  const [catOpen, setCatOpen] = useState({})
+export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMode, catOpen, onToggleCat, onEdit, onDelete, onDeleteMany, onAddMore, onAddMoreBucket, onOpenDetail }) {
   const [openSwipe, setOpenSwipe] = useState(null)
   if (!holdings || holdings.length === 0) return null
 
-  const toggleCat = (key) => setCatOpen((o) => ({ ...o, [key]: o[key] !== true }))
+  const toggleCat = onToggleCat
 
   const groups = CATEGORIES.map((c) => ({
     ...c,

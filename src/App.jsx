@@ -68,6 +68,7 @@ export default function App() {
   const [symbolPrefs, setSymbolPrefs] = useState({})
   const [simpleMode, setSimpleMode] = useState(false)
   const [detailKey, setDetailKey] = useState(null)
+  const [catOpen, setCatOpen] = useState({})
   const [changePct, setChangePct] = useState({})
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
@@ -107,6 +108,7 @@ export default function App() {
     setSimpleMode(next)
     store.setSetting('simpleMode', next)
   }
+  const toggleCatOpen = (key) => setCatOpen((o) => ({ ...o, [key]: o[key] !== true }))
   function finishOnboarding() {
     setShowOnboarding(false)
     store.setSetting('onboarded', true)
@@ -394,7 +396,7 @@ export default function App() {
                   還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
                 </div>
               ) : (
-                <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} onEdit={openEdit} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onOpenDetail={setDetailKey} />
+                <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} catOpen={catOpen} onToggleCat={toggleCatOpen} onEdit={openEdit} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onOpenDetail={setDetailKey} />
               )}
             </section>
           )
