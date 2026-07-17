@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
 import { store } from './store'
@@ -13,7 +13,9 @@ import HoldingsTable from './components/HoldingsTable'
 import HoldingDetailPage from './components/HoldingDetailPage'
 import ConfirmClearModal from './components/ConfirmClearModal'
 import DeletedPanel from './components/DeletedPanel'
-import OnboardingModal from './components/OnboardingModal'
+import SpotlightTour from './components/SpotlightTour'
+
+const TAB_ORDER = ['overview', 'holdings', 'trend', 'settings']
 
 const REFRESH_MS = 60_000 // 每 60 秒自動更新一次報價
 
@@ -68,6 +70,12 @@ export default function App() {
   const [detailKey, setDetailKey] = useState(null)
   const [changePct, setChangePct] = useState({})
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const prevTabIndexRef = useRef(0)
+  const prevDetailRef = useRef(null)
+  const slideDir = TAB_ORDER.indexOf(tab) >= prevTabIndexRef.current ? 'fwd' : 'back'
+  const cameBackFromDetail = prevDetailRef.current != null && detailKey == null
+  useEffect(() => { prevTabIndexRef.current = TAB_ORDER.indexOf(tab) }, [tab])
+  useEffect(() => { prevDetailRef.current = detailKey }, [detailKey])
 
   // 讀取上次存的匯率與自動/手動設定
   useEffect(() => {
@@ -297,8 +305,8 @@ export default function App() {
 
       <main className="tab-content">
         {tab === 'overview' && (
-          <div className="page-fade">
-            <section className="hero">
+          <div className={'page-fade slide-' + slideDir}>
+            <section className="hero" data-tour="hero">
               <div className="hero-label">淨資產</div>
               <div className={'hero-value' + (netWorth < 0 ? ' neg' : '')}>{fmtTwd(netWorth)}</div>
               {!simpleMode && changes.length > 0 && (
@@ -361,7 +369,7 @@ export default function App() {
               onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket}
             />
           ) : (
-            <section className="panel page-fade">
+            <section className={'panel page-fade slide-' + (cameBackFromDetail ? 'back' : slideDir)} data-tour="holdings-panel">
               <h3 className="panel-title">持倉明細</h3>
               {holdings.length === 0 ? (
                 <div className="empty">
@@ -375,7 +383,7 @@ export default function App() {
         )}
 
         {tab === 'trend' && (
-          <section className="panel trend page-fade">
+          <section className={'panel trend page-fade slide-' + slideDir} data-tour="trend-panel">
             <div className="trend-head">
               <h3 className="panel-title">資產走勢</h3>
               <div className="seg">
@@ -388,7 +396,7 @@ export default function App() {
         )}
 
         {tab === 'settings' && (
-          <div className="page-fade">
+          <div className={'page-fade slide-' + slideDir}>
             <section className="panel">
               <h3 className="panel-title">顯示模式</h3>
               <div className="settings-row">
@@ -400,7 +408,7 @@ export default function App() {
                       : '完整功能：含成本、報酬率、損益與變化幅度。'}
                   </div>
                 </div>
-                <div className="seg">
+                <div className="seg" data-tour="simple-toggle">
                   <button className={!simpleMode ? 'on' : ''} onClick={() => simpleMode && toggleSimpleMode()}>詳細版</button>
                   <button className={simpleMode ? 'on' : ''} onClick={() => !simpleMode && toggleSimpleMode()}>簡易版</button>
                 </div>
@@ -503,7 +511,7 @@ export default function App() {
         )}
       </main>
 
-      <button className="fab" onClick={openAdd} aria-label="新增持倉或負債">＋</button>
+      <button className="fab" data-tour="fab" onClick={openAdd} aria-label="新增持倉或負債">＋</button>
 
       <nav className="tabbar">
         {TABS.map((t) => (
@@ -537,7 +545,9 @@ export default function App() {
           </div>
         </div>
       )}
-      {showOnboarding && <OnboardingModal onFinish={finishOnboarding} />}
+      {showOnboarding && (
+        <SpotlightTour activeTab={tab} onNavigate={setTab} onFinish={finishOnboarding} />
+      )}
     </div>
   )
 }
