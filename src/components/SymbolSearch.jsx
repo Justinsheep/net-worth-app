@@ -7,7 +7,7 @@ import { useFloatingRect } from '../useFloatingRect'
 // 哪些分類有搜尋清單
 const LIST_KEY = { tw_stock: 'tw_stock', us_stock: 'us_stock', crypto: 'crypto', fund: 'fund' }
 
-export default function SymbolSearch({ category, subtype, value, onPick, placeholder }) {
+export default function SymbolSearch({ category, subtype, value, onPick, placeholder, field = 'symbol' }) {
   const listKey = LIST_KEY[category]
   const [data, setData] = useState(null)
   const [open, setOpen] = useState(false)
@@ -37,7 +37,8 @@ export default function SymbolSearch({ category, subtype, value, onPick, placeho
   }
 
   function onType(v) {
-    onPick(v, null) // 只更新代號，不動名稱
+    if (field === 'name') onPick(null, v) // 打名稱：只更新名稱，不動代號
+    else onPick(v, null) // 打代號：只更新代號，不動名稱
     if (data && listKey) {
       const m = searchSymbols(applySubtypeFilter(data[listKey] || []), v)
       setMatches(m)

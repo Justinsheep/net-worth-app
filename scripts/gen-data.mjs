@@ -116,6 +116,33 @@ async function twData() {
 
 // 美股清單：NASDAQ 官方公開的上市公司名冊（nasdaqlisted / otherlisted，含 NYSE），
 // 這是長年穩定、免金鑰的公開資料格式。含真實的 ETF 欄位，不用像台股那樣用代碼猜。
+// 常見美股的中英對照（涵蓋率不可能到全部上萬檔，只做大家常聽到的），
+// 有對照的用這個蓋掉官方原始英文名，其餘維持原始名稱
+const US_STOCK_NAMES = {
+  AAPL: 'Apple 蘋果', MSFT: 'Microsoft 微軟', GOOGL: 'Alphabet Class A 谷歌', GOOG: 'Alphabet Class C 谷歌',
+  AMZN: 'Amazon 亞馬遜', TSLA: 'Tesla 特斯拉', META: 'Meta 臉書', NVDA: 'NVIDIA 輝達',
+  NFLX: 'Netflix 網飛', AMD: 'AMD 超微', INTC: 'Intel 英特爾', QCOM: 'Qualcomm 高通',
+  AVGO: 'Broadcom 博通', ORCL: 'Oracle 甲骨文', CRM: 'Salesforce',
+  ADBE: 'Adobe', IBM: 'IBM', CSCO: 'Cisco 思科', PYPL: 'PayPal',
+  UBER: 'Uber', LYFT: 'Lyft', ABNB: 'Airbnb 愛彼迎', COIN: 'Coinbase',
+  SHOP: 'Shopify', SQ: 'Block（原 Square）', SNAP: 'Snap',
+  DIS: 'Disney 迪士尼', NKE: 'Nike 耐吉', SBUX: 'Starbucks 星巴克', MCD: "McDonald's 麥當勞",
+  KO: 'Coca-Cola 可口可樂', PEP: 'PepsiCo 百事', WMT: 'Walmart 沃爾瑪', COST: 'Costco 好市多',
+  TGT: 'Target 塔吉特', HD: 'Home Depot', JPM: 'JPMorgan 摩根大通', BAC: 'Bank of America 美國銀行',
+  GS: 'Goldman Sachs 高盛', MS: 'Morgan Stanley 摩根士丹利', V: 'Visa', MA: 'Mastercard 萬事達',
+  JNJ: 'Johnson & Johnson 嬌生', PFE: 'Pfizer 輝瑞', UNH: 'UnitedHealth',
+  XOM: 'ExxonMobil 埃克森美孚', CVX: 'Chevron 雪佛龍',
+  BA: 'Boeing 波音', GE: 'GE', F: 'Ford 福特', GM: 'General Motors 通用汽車',
+  T: 'AT&T', VZ: 'Verizon', TSM: 'TSMC 台積電 ADR', BABA: 'Alibaba 阿里巴巴', PDD: 'PDD／拼多多',
+  JD: 'JD.com 京東', NIO: 'NIO 蔚來', RIVN: 'Rivian', LCID: 'Lucid',
+  PLTR: 'Palantir', SOFI: 'SoFi', RBLX: 'Roblox', U: 'Unity',
+  // 常見美股 ETF
+  SPY: 'SPDR S&P 500 ETF', VOO: 'Vanguard S&P 500 ETF', QQQ: 'Invesco QQQ（那斯達克100）',
+  VTI: 'Vanguard 全美股市 ETF', IVV: 'iShares S&P 500 ETF', VEA: 'Vanguard 已開發市場 ETF',
+  VWO: 'Vanguard 新興市場 ETF', ARKK: 'ARK 創新 ETF', SCHD: 'Schwab 高股息 ETF',
+  JEPI: 'JPMorgan 收益 ETF', TLT: 'iShares 20年期公債 ETF', GLD: 'SPDR 黃金 ETF',
+}
+
 async function usStockSymbols() {
   const out = []
   const seen = new Set()
@@ -168,6 +195,12 @@ async function usStockSymbols() {
     for (const it of otherList) {
       if (!seen.has(it.code)) { seen.add(it.code); out.push(it) }
     }
+    // 常見的幾十檔換成中英對照名稱，方便打中文也搜得到
+    let namedCount = 0
+    for (const it of out) {
+      if (US_STOCK_NAMES[it.code]) { it.name = US_STOCK_NAMES[it.code]; namedCount++ }
+    }
+    console.log('美股中英對照套用：', namedCount, '檔')
     const etfCount = out.filter((x) => x.etf).length
     console.log('美股：', out.length, '檔（含 NASDAQ + NYSE 等），其中 ETF：', etfCount, '檔')
     if (out.length > 0 && etfCount === 0) {

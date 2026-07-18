@@ -142,9 +142,12 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
 
   function pickSymbol(code, name) {
     setForm((f) => {
-      const next = { ...f, symbol: code, ...(name != null ? { name } : {}) }
+      const next = { ...f }
+      if (code != null) next.symbol = code
+      if (name != null) next.name = name
       // 記憶上次：同一代號上次用什麼成本幣別，這次自動帶上
-      const pref = symbolPrefs?.[`${f.category}:${String(code).toUpperCase()}`]
+      const lookupCode = code != null ? code : f.symbol
+      const pref = symbolPrefs?.[`${f.category}:${String(lookupCode).toUpperCase()}`]
       if (pref?.currency) next.currency = pref.currency
       return next
     })
@@ -320,7 +323,11 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
                 </label>
                 <label className="field">
                   <span>名稱</span>
-                  <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="選代號自動帶入" />
+                  {HAS_SEARCH[form.category] ? (
+                    <SymbolSearch category={form.category} subtype={form.subtype} value={form.name} onPick={pickSymbol} placeholder="打名稱搜尋，或選代號自動帶入" field="name" />
+                  ) : (
+                    <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="選代號自動帶入" />
+                  )}
                 </label>
               </>
             )}
