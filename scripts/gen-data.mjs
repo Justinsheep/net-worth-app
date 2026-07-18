@@ -125,6 +125,23 @@ async function usStockSymbols() {
     if (!res.ok) throw new Error(`${url} HTTP ${res.status}`)
     return res.text()
   }
+  // old.nasdaqtrader.com 從名字看就像是舊網域，連線可能不穩，改用 ftp.nasdaqtrader.com 當主要來源，
+  // 失敗就自動改試下一個候選網域，任一個連得上就有資料
+  async function getTextWithFallback(hosts, filePath) {
+    for (const host of hosts) {
+      const url = `https://${host}${filePath}`
+      try {
+        const text = await getText(url)
+        console.log(`  ${filePath}：${host} 成功`)
+        return text
+      } catch (e) {
+        console.warn(`  ${filePath}：${host} 失敗（${e.message}），改試下一個`)
+      }
+    }
+    throw new Error(`${filePath} 所有候選網域都失敗`)
+  }
+  const NASDAQ_HOSTS = ['ftp.nasdaqtrader.com', 'old.nasdaqtrader.com', 'nasdaqtrader.com']
+
   function parsePipeFile(text, { symbolCol, nameCol, etfCol }) {
     const lines = text.split('\n').filter((l) => l.trim() && !l.startsWith('File Creation Time'))
     const header = lines[0].split('|')
@@ -140,8 +157,8 @@ async function usStockSymbols() {
 
   try {
     const [nasdaq, other] = await Promise.all([
-      getText('https://old.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt'),
-      getText('https://old.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt'),
+      getTextWithFallback(NASDAQ_HOSTS, '/dynamic/SymDir/nasdaqlisted.txt'),
+      getTextWithFallback(NASDAQ_HOSTS, '/dynamic/SymDir/otherlisted.txt'),
     ])
     const nasdaqList = parsePipeFile(nasdaq, { symbolCol: 'Symbol', nameCol: 'Security Name', etfCol: 'ETF' })
     const otherList = parsePipeFile(other, { symbolCol: 'ACT Symbol', nameCol: 'Security Name', etfCol: 'ETF' })

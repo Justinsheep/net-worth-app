@@ -70,7 +70,7 @@ const blank = {
 
 const SYMBOL_HINT = {
   tw_stock: '打代號或名稱搜尋', us_stock: '打代號或名稱搜尋，例：AAPL',
-  crypto: '打代號或名稱搜尋，例：BTC', fund: '打基金代號或名稱搜尋',
+  crypto: '打代號或名稱搜尋，例：BTC', fund: '打 MoneyDJ 基金代號，例：ACFT01（暫無自動建議）',
 }
 const HAS_SEARCH = { tw_stock: true, us_stock: true, crypto: true, fund: true }
 const DEBT_LABEL = Object.fromEntries(DEBT_TYPES.map(([k, l]) => [k, l]))

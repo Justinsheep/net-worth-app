@@ -70,11 +70,22 @@ export async function fetchOneUsStockPrice(symbol) {
   }
 }
 
-// 基金淨值目前還沒接上——台灣的基金淨值分散在各基金公司/代銷平台，投信投顧公會雖然有公開資料，
-// 但我這邊沒辦法連線實際驗證格式，怕接錯顯示出「看起來對、其實錯」的淨值，寧可先讓你手動填。
-// 之後找到能驗證過的資料源再補上（介面/成本/報酬全部都已經做好了，只差這個函式）。
-export async function fetchOneFundPrice() {
-  return null
+// 基金淨值：MoneyDJ 的基金頁面（不是乾淨的資料 API，是網頁），用你提供的實際頁面內容
+// 驗證過解析規則、抓得到正確的最新淨值。查不到／格式跑掉就傳回 null，退回手動填。
+export async function fetchOneFundPrice(code) {
+  const c = String(code || '').trim()
+  if (!c) return null
+  try {
+    const res = await fetch(`https://www.moneydj.com/funddj/ya/yp010000.djhtm?a=${encodeURIComponent(c)}`)
+    if (!res.ok) return null
+    const html = await res.text()
+    const m = html.match(/<td class="t3n0[^"]*">\d{2}\/\d{2}<\/td>\s*<td class="t3n1[^"]*">([\d.]+)<\/td>/)
+    if (!m) return null
+    const nav = Number(m[1])
+    return Number.isFinite(nav) && nav > 0 ? nav : null
+  } catch {
+    return null
+  }
 }
 
 export async function loadPrices(holdings) {
@@ -136,6 +147,22 @@ export async function loadPrices(holdings) {
     } catch (e) {
       out.errors.push('美股報價抓取失敗：' + e.message)
     }
+  }
+
+  // ---- 基金（只查你實際持有的代號，逐一查）----
+  const fundSymbols = [
+    ...new Set(
+      holdings
+        .filter((h) => h.category === 'fund' && h.symbol)
+        .map((h) => String(h.symbol).toUpperCase())
+    ),
+  ]
+  if (fundSymbols.length) {
+    const results = await Promise.allSettled(fundSymbols.map((s) => fetchOneFundPrice(s)))
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled' && r.value != null) out.prices[`fund:${fundSymbols[i]}`] = r.value
+      else out.errors.push(`基金 ${fundSymbols[i]} 抓取失敗`)
+    })
   }
 
   // ---- 台股：讀 prices.json（可能還沒產生，屬正常）----
