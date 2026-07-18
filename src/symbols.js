@@ -7,7 +7,7 @@ let loading = null
 export function loadSymbols() {
   if (cache) return Promise.resolve(cache)
   if (loading) return loading
-  loading = fetch(import.meta.env.BASE_URL + 'symbols.json', { cache: 'force-cache' })
+  loading = fetch(import.meta.env.BASE_URL + 'symbols.json', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => {
       cache = d || { tw_stock: [], us_stock: [], crypto: [], fund: [] }
