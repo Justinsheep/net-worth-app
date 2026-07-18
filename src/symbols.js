@@ -27,8 +27,10 @@ export function searchSymbols(list, query, limit = 30) {
   const starts = []
   const contains = []
   for (const it of list) {
-    const code = it.code.toUpperCase()
-    const name = it.name.toUpperCase()
+    if (!it) continue
+    const code = String(it.code || '').toUpperCase()
+    const name = String(it.name || '').toUpperCase()
+    if (!code) continue
     if (code.startsWith(q)) starts.push(it)
     else if (code.includes(q) || name.includes(q)) contains.push(it)
     if (starts.length >= limit) break

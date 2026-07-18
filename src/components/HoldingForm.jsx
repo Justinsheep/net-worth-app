@@ -122,8 +122,8 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
   // ---- 第一步：選大分類 ----
   function pickCategory(cat) {
     setForm({ ...blank, category: cat, currency: catDefaultCurrency(cat) })
-    // 現金預設台幣、直接進細節（要記外幣可在表單內改幣別），少走一步
-    setStep(cat === 'cash' ? 3 : 2)
+    // 現金、基金不需要選細項，直接進細節（基金幣別在第三步的成本幣別欄選就好）
+    setStep(cat === 'cash' || cat === 'fund' ? 3 : 2)
   }
 
   // ---- 第二步：細分類 ----
@@ -197,7 +197,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
   }
 
   const canBack = !editing && !template && step > 1
-  const goBack = () => setStep(step === 3 && form.category === 'cash' ? 1 : step - 1)
+  const goBack = () => setStep(step === 3 && (form.category === 'cash' || form.category === 'fund') ? 1 : step - 1)
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -243,19 +243,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
             </button>
           </div>
         )}
-        {step === 2 && form.category === 'fund' && (
-          <>
-            <div className="wizard-grid two">
-              <button className="wizard-tile" onClick={() => { set('currency', 'TWD'); setStep(3) }}>
-                <span className="wizard-tile-code">TWD</span><span className="wizard-tile-sub">台幣計價</span>
-              </button>
-              <button className="wizard-tile" onClick={() => { set('currency', 'USD'); setStep(3) }}>
-                <span className="wizard-tile-code">USD</span><span className="wizard-tile-sub">美元計價</span>
-              </button>
-            </div>
-            <p className="hint">選這檔基金淨值是用哪個幣別報價（跟你的成本幣別會是同一個）。</p>
-          </>
-        )}
+
         {step === 2 && form.category === 'crypto' && (
           <>
             <div className="wizard-grid two">

@@ -143,13 +143,23 @@ async function usStockSymbols() {
       getText('https://old.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt'),
       getText('https://old.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt'),
     ])
-    for (const it of parsePipeFile(nasdaq, { symbolCol: 'Symbol', nameCol: 'Security Name', etfCol: 'ETF' })) {
+    const nasdaqList = parsePipeFile(nasdaq, { symbolCol: 'Symbol', nameCol: 'Security Name', etfCol: 'ETF' })
+    const otherList = parsePipeFile(other, { symbolCol: 'ACT Symbol', nameCol: 'Security Name', etfCol: 'ETF' })
+    for (const it of nasdaqList) {
       if (!seen.has(it.code)) { seen.add(it.code); out.push(it) }
     }
-    for (const it of parsePipeFile(other, { symbolCol: 'ACT Symbol', nameCol: 'Security Name', etfCol: 'ETF' })) {
+    for (const it of otherList) {
       if (!seen.has(it.code)) { seen.add(it.code); out.push(it) }
     }
-    console.log('美股：', out.length, '檔（含 NASDAQ + NYSE 等）')
+    const etfCount = out.filter((x) => x.etf).length
+    console.log('美股：', out.length, '檔（含 NASDAQ + NYSE 等），其中 ETF：', etfCount, '檔')
+    if (out.length > 0 && etfCount === 0) {
+      console.warn('警告：ETF 欄位判斷失敗（欄位名稱可能跟預期不同），改用名稱關鍵字退回判斷')
+      for (const it of out) {
+        if (/\b(ETF|TRUST|FUND)\b/i.test(it.name)) it.etf = true
+      }
+      console.log('退回判斷後 ETF：', out.filter((x) => x.etf).length, '檔')
+    }
   } catch (e) {
     console.warn('美股清單失敗：', e.message)
   }
