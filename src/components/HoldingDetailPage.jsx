@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import {
   catLabel, catColor, holdingIsCashLike, holdingValueTwd, effectiveUnitPrice,
-  hasLivePrice, quoteCurrencyOf, lotPnlTwd, lotRoi, symbolAgg, priceKey,
+  hasLivePrice, quoteCurrencyOf, rateToTwd, lotPnlTwd, lotRoi, symbolAgg, priceKey,
   fmtTwd, fmtNum, fmtQty, qtyUnit, fmtPct, fmtSignedTwd,
 } from '../calc'
 import { DEBT_LABEL } from '../grouping'
 import { IconChip } from '../icons'
 import SwipeRow from './SwipeRow'
+import IconPicker from './IconPicker'
 
 // 交易明細裡的一列。往右滑露出「✎編輯」「🗑刪除」，平常畫面乾淨、金額靠右。
 function TxnRow({ h, priced, fx, prices, simpleMode, openSwipe, onOpenSwipeChange, onEdit, onDelete }) {
@@ -28,7 +29,7 @@ function TxnRow({ h, priced, fx, prices, simpleMode, openSwipe, onOpenSwipeChang
             {live && <span className="live-tag">即時</span>}
           </div>
           <div className="row-sub">
-            {fmtQty(h.quantity)} {qtyUnit(h.category)} × {fmtNum(unit)} {quoteCurrencyOf(h.category)}
+            {fmtQty(h.quantity)} {qtyUnit(h.category)} × {fmtNum(unit)} {quoteCurrencyOf(h.category, h)}
           </div>
         </div>
         <div className="row-right">
@@ -52,8 +53,9 @@ function TxnRow({ h, priced, fx, prices, simpleMode, openSwipe, onOpenSwipeChang
   )
 }
 
-export default function HoldingDetailPage({ groupKey, holdings, fx, prices, fxRates, changePct, simpleMode, onBack, onEdit, onDelete, onAddMore, onAddMoreBucket }) {
+export default function HoldingDetailPage({ groupKey, holdings, fx, prices, fxRates, changePct, simpleMode, onBack, onEdit, onDelete, onAddMore, onAddMoreBucket, onChangeIcon }) {
   const [openSwipe, setOpenSwipe] = useState(null)
+  const [iconPickerOpen, setIconPickerOpen] = useState(false)
   const priced = groupKey.kind === 'symbol'
 
   let items
@@ -104,8 +106,28 @@ export default function HoldingDetailPage({ groupKey, holdings, fx, prices, fxRa
           {priced && first.symbol && <span className="detail-head-sub">{first.symbol}　{catLabel(groupKey.category)}</span>}
           {!priced && <span className="detail-head-sub">{catLabel(groupKey.kind === 'debt' ? 'debt' : 'bank')}</span>}
         </div>
-        <IconChip holding={first} color={catColor(first.category)} />
+        <button className="detail-icon-btn" onClick={() => setIconPickerOpen(true)} aria-label="更改圖示">
+          <IconChip holding={first} color={catColor(first.category)} />
+        </button>
       </div>
+
+      {iconPickerOpen && (
+        <div className="modal-backdrop" onClick={() => setIconPickerOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <span />
+              <h2>選圖示</h2>
+              <button className="icon-btn" onClick={() => setIconPickerOpen(false)} aria-label="關閉">✕</button>
+            </div>
+            <IconPicker
+              value={first.icon}
+              category={first.category}
+              subtype={first.subtype}
+              onChange={(v) => { onChangeIcon(items, v); setIconPickerOpen(false) }}
+            />
+          </div>
+        </div>
+      )}
 
       <section className="hero detail-hero">
         <div className="hero-label">{priced ? '現在市值' : '目前金額'}</div>
@@ -129,16 +151,14 @@ export default function HoldingDetailPage({ groupKey, holdings, fx, prices, fxRa
               </div>
               <div className="stat">
                 <span className="stat-label">現價</span>
-                <span className="stat-value">{fmtNum(effectiveUnitPrice(first, prices))} {quoteCurrencyOf(groupKey.category)}</span>
+                <span className="stat-value">{fmtNum(effectiveUnitPrice(first, prices))} {quoteCurrencyOf(groupKey.category, first)}</span>
               </div>
               {!simpleMode && agg.anyCost && (
                 <div className="stat">
                   <span className="stat-label">成本均價</span>
-                  {groupKey.category === 'crypto' ? (
-                    <span className="stat-value">{fmtNum(agg.costTwd / fx / agg.qty)} USD</span>
-                  ) : (
-                    <span className="stat-value">{fmtNum(agg.costTwd / agg.qty)} TWD</span>
-                  )}
+                  <span className="stat-value">
+                    {fmtNum(agg.costTwd / (rateToTwd(quoteCurrencyOf(groupKey.category, first), fx, fxRates) || 1) / agg.qty)} {quoteCurrencyOf(groupKey.category, first)}
+                  </span>
                 </div>
               )}
               {!simpleMode && agg.anyCost && (

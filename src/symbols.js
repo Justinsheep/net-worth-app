@@ -10,11 +10,11 @@ export function loadSymbols() {
   loading = fetch(import.meta.env.BASE_URL + 'symbols.json', { cache: 'force-cache' })
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => {
-      cache = d || { tw_stock: [], crypto: [] }
+      cache = d || { tw_stock: [], us_stock: [], crypto: [], fund: [] }
       return cache
     })
     .catch(() => {
-      cache = { tw_stock: [], crypto: [] }
+      cache = { tw_stock: [], us_stock: [], crypto: [], fund: [] }
       return cache
     })
   return loading

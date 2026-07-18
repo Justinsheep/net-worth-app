@@ -5,7 +5,7 @@ import { isEtfCode } from '../calc'
 import { useFloatingRect } from '../useFloatingRect'
 
 // 哪些分類有搜尋清單
-const LIST_KEY = { tw_stock: 'tw_stock', crypto: 'crypto' }
+const LIST_KEY = { tw_stock: 'tw_stock', us_stock: 'us_stock', crypto: 'crypto', fund: 'fund' }
 
 export default function SymbolSearch({ category, subtype, value, onPick, placeholder }) {
   const listKey = LIST_KEY[category]
@@ -28,10 +28,12 @@ export default function SymbolSearch({ category, subtype, value, onPick, placeho
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
-  // 台股依子分類（個股/ETF）篩選；其他分類不篩選
+  // 台股依代碼規則（00開頭＝ETF）篩選；美股用資料源給的真實 ETF 旗標篩選；其他分類不篩選
   function applySubtypeFilter(list) {
-    if (category !== 'tw_stock' || !subtype) return list
-    return list.filter((it) => (subtype === 'etf' ? isEtfCode(it.code) : !isEtfCode(it.code)))
+    if (!subtype) return list
+    if (category === 'tw_stock') return list.filter((it) => (subtype === 'etf' ? isEtfCode(it.code) : !isEtfCode(it.code)))
+    if (category === 'us_stock') return list.filter((it) => (subtype === 'etf' ? !!it.etf : !it.etf))
+    return list
   }
 
   function onType(v) {

@@ -259,7 +259,7 @@ export default function App() {
     if (editing) await store.updateHolding(editing.id, rec)
     else await store.addHolding(rec)
     // 記憶：這個代號這次用了什麼成本幣別，下次同一代號自動帶上
-    if (rec.symbol && (rec.category === 'tw_stock' || rec.category === 'crypto')) {
+    if (rec.symbol && ['tw_stock', 'us_stock', 'crypto', 'fund'].includes(rec.category)) {
       const key = `${rec.category}:${rec.symbol.toUpperCase()}`
       const next = { ...symbolPrefs, [key]: { currency: rec.currency } }
       setSymbolPrefs(next)
@@ -281,6 +281,10 @@ export default function App() {
     if (!list?.length) return
     if (list.length === 1) return remove(list[0])
     return removeMany(list.map((h) => h.id), detailKey?.label || '這組')
+  }
+  // 詳細頁改圖示：整組（同一檔/同一子分類/同一銀行）一起改，確保列表跟詳細頁顯示一致
+  async function changeGroupIcon(list, icon) {
+    for (const h of list) await store.updateHolding(h.id, { icon: icon || undefined })
   }
   async function restoreHoldings(ids) {
     await store.restoreHoldings(ids)
@@ -407,7 +411,7 @@ export default function App() {
               groupKey={detailKey} holdings={holdings} fx={fx} prices={prices} fxRates={fxRates}
               changePct={changePct} simpleMode={simpleMode}
               onBack={() => setDetailKey(null)} onEdit={openEdit} onDelete={detailDelete}
-              onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket}
+              onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onChangeIcon={changeGroupIcon}
             />
           ) : (
             <section className={'panel page-fade slide-' + (cameBackFromDetail ? 'back' : slideDir)} data-tour="holdings-panel">

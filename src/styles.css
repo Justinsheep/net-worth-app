@@ -574,3 +574,4 @@ body {
   .tabbar, .fab { transition: opacity 0.2s ease; }
   .tabbar.chrome-hidden, .fab.chrome-hidden { transform: none; }
 }
+.detail-icon-btn { border: none; background: none; padding: 0; cursor: pointer; flex: none; }

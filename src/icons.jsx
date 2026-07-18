@@ -43,7 +43,9 @@ export const ICON_LIST = [
 // 各分類（可含子分類）沒有自選圖示時的預設圖示
 export const DEFAULT_ICON = {
   tw_stock: 'chartUp',
+  us_stock: 'chartUp',
   crypto: 'coin',
+  fund: 'goldbar',
   cash: 'wallet',
   bank: 'bank',
   debt: 'scale',

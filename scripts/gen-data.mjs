@@ -114,6 +114,56 @@ async function twData() {
   return { symbols, prices, chg }
 }
 
+// 美股清單：NASDAQ 官方公開的上市公司名冊（nasdaqlisted / otherlisted，含 NYSE），
+// 這是長年穩定、免金鑰的公開資料格式。含真實的 ETF 欄位，不用像台股那樣用代碼猜。
+async function usStockSymbols() {
+  const out = []
+  const seen = new Set()
+
+  async function getText(url) {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+    if (!res.ok) throw new Error(`${url} HTTP ${res.status}`)
+    return res.text()
+  }
+  function parsePipeFile(text, { symbolCol, nameCol, etfCol }) {
+    const lines = text.split('\n').filter((l) => l.trim() && !l.startsWith('File Creation Time'))
+    const header = lines[0].split('|')
+    const si = header.indexOf(symbolCol)
+    const ni = header.indexOf(nameCol)
+    const ei = etfCol ? header.indexOf(etfCol) : -1
+    if (si === -1 || ni === -1) return []
+    return lines.slice(1).map((l) => {
+      const cols = l.split('|')
+      return { code: (cols[si] || '').trim(), name: (cols[ni] || '').trim(), etf: ei !== -1 && cols[ei] === 'Y' }
+    }).filter((x) => x.code && x.name && !x.code.includes('.') && !x.code.includes('$'))
+  }
+
+  try {
+    const [nasdaq, other] = await Promise.all([
+      getText('https://old.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt'),
+      getText('https://old.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt'),
+    ])
+    for (const it of parsePipeFile(nasdaq, { symbolCol: 'Symbol', nameCol: 'Security Name', etfCol: 'ETF' })) {
+      if (!seen.has(it.code)) { seen.add(it.code); out.push(it) }
+    }
+    for (const it of parsePipeFile(other, { symbolCol: 'ACT Symbol', nameCol: 'Security Name', etfCol: 'ETF' })) {
+      if (!seen.has(it.code)) { seen.add(it.code); out.push(it) }
+    }
+    console.log('美股：', out.length, '檔（含 NASDAQ + NYSE 等）')
+  } catch (e) {
+    console.warn('美股清單失敗：', e.message)
+  }
+  out.sort((a, b) => a.code.localeCompare(b.code))
+  return out
+}
+
+// 基金清單：目前留空。台灣基金淨值分散在各基金公司/代銷平台，投信投顧公會雖有公開資料，
+// 但這邊沒辦法連線實際驗證清單/淨值格式，怕接錯造成誤導，所以先不接——
+// 「基金」分類本身已經可以用，只是代號要自己手動輸入，現價也要手動填。
+async function fundSymbols() {
+  return []
+}
+
 const CRYPTO_NAMES = {
   USDT: 'Tether 泰達幣（穩定幣）',
   BTC: 'Bitcoin 比特幣', ETH: 'Ethereum 以太幣', BNB: 'BNB', SOL: 'Solana',
@@ -150,20 +200,20 @@ async function cryptoSymbols() {
 }
 
 async function main() {
-  const [tw, crypto] = await Promise.all([twData(), cryptoSymbols()])
+  const [tw, crypto, usStock, fund] = await Promise.all([twData(), cryptoSymbols(), usStockSymbols(), fundSymbols()])
   const now = new Date().toISOString()
 
   await fs.mkdir(path.join(root, 'public'), { recursive: true })
   await fs.writeFile(
     path.join(root, 'public', 'symbols.json'),
-    JSON.stringify({ updatedAt: now, tw_stock: tw.symbols, crypto })
+    JSON.stringify({ updatedAt: now, tw_stock: tw.symbols, us_stock: usStock, crypto, fund })
   )
   await fs.writeFile(
     path.join(root, 'public', 'prices.json'),
     JSON.stringify({ updatedAt: now, tw_stock: tw.prices, tw_stock_chg: tw.chg }, null, 2)
   )
 
-  console.log(`已寫入 symbols.json（台股 ${tw.symbols.length} 檔、加密貨幣 ${crypto.length} 種）`)
+  console.log(`已寫入 symbols.json（台股 ${tw.symbols.length} 檔、美股 ${usStock.length} 檔、加密貨幣 ${crypto.length} 種、基金 ${fund.length} 檔）`)
   console.log(`已寫入 prices.json（台股報價 ${Object.keys(tw.prices).length} 檔、漲跌幅 ${Object.keys(tw.chg).length} 檔）`)
 }
 

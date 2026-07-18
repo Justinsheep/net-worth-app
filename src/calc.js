@@ -1,7 +1,9 @@
 // 資產分類定義。category 用字串，未來加「黃金 / 基金 / 美債」只要在這裡多一列。
 export const CATEGORIES = [
   { key: 'tw_stock', label: '台股', defaultCurrency: 'TWD', color: '#2F80B4' },
+  { key: 'us_stock', label: '美股', defaultCurrency: 'USD', color: '#7856C9' },
   { key: 'crypto', label: '加密貨幣', defaultCurrency: 'USD', color: '#E19A3C' },
+  { key: 'fund', label: '基金', defaultCurrency: 'TWD', color: '#1B9C8E' },
   { key: 'cash', label: '現金 / 外幣', defaultCurrency: 'TWD', color: '#12A67A' },
   { key: 'bank', label: '銀行', defaultCurrency: 'TWD', color: '#5B78E5' },
   { key: 'debt', label: '負債', defaultCurrency: 'TWD', color: '#E05B5B' },
@@ -30,8 +32,12 @@ export const isStablecoin = (h) =>
 
 // 市場報價的幣別是「固定的」，由資料來源決定，跟使用者填的成本幣別無關：
 // 台股報價來自證交所（台幣），加密貨幣報價來自 Binance（美元）。
-export const QUOTE_CURRENCY = { tw_stock: 'TWD', crypto: 'USD' }
-export const quoteCurrencyOf = (category) => QUOTE_CURRENCY[category] || 'TWD'
+export const QUOTE_CURRENCY = { tw_stock: 'TWD', us_stock: 'USD', crypto: 'USD' }
+// 基金沒有統一的報價來源，幣別由使用者自己選（跟成本幣別是同一個欄位），其餘分類固定
+export function quoteCurrencyOf(category, h) {
+  if (category === 'fund') return h?.currency || 'TWD'
+  return QUOTE_CURRENCY[category] || 'TWD'
+}
 
 // 報價對照表的 key：分類:代號（代號轉大寫）
 export const priceKey = (h) => `${h.category}:${String(h.symbol || '').toUpperCase()}`
@@ -67,7 +73,7 @@ export function holdingValueTwd(h, fx, prices, fxRates) {
     return native * rate * sign
   }
   const native = Number(h.quantity || 0) * effectiveUnitPrice(h, prices)
-  const rate = quoteCurrencyOf(h.category) === 'USD' ? Number(fx || 0) : 1
+  const rate = rateToTwd(quoteCurrencyOf(h.category, h), fx, fxRates)
   return native * rate
 }
 
@@ -155,7 +161,12 @@ export const fmtNum = (n) =>
 export const fmtQty = (n) =>
   Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 8 })
 // 數量單位：台股「股」、加密貨幣「顆」，其他分類沒有單位
-export const qtyUnit = (category) => (category === 'tw_stock' ? '股' : category === 'crypto' ? '顆' : '')
+export const qtyUnit = (category) => {
+  if (category === 'tw_stock' || category === 'us_stock') return '股'
+  if (category === 'crypto') return '顆'
+  if (category === 'fund') return '單位'
+  return ''
+}
 export const fmtPct = (r) =>
   r == null ? '—' : (r >= 0 ? '+' : '-') + Math.abs(r * 100).toFixed(1) + '%'
 export const fmtSignedTwd = (n) =>

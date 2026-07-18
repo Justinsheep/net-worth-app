@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { CATEGORIES, isCashLike, catDefaultCurrency, catColor, quoteCurrencyOf, isStablecoin, priceKey } from '../calc'
-import { fetchOneCryptoPrice } from '../prices'
+import { fetchOneCryptoPrice, fetchOneUsStockPrice, fetchOneFundPrice } from '../prices'
 import { CASH_CURRENCIES } from '../currencies'
 import { DEBT_TYPES } from '../debtTypes'
 import { IconGlyph } from '../icons'
@@ -68,8 +68,11 @@ const blank = {
   quantity: '', price: '', currency: 'TWD', totalCost: '', buyDate: '', icon: '',
 }
 
-const SYMBOL_HINT = { tw_stock: '打代號或名稱搜尋', crypto: '打代號或名稱搜尋，例：BTC' }
-const HAS_SEARCH = { tw_stock: true, crypto: true }
+const SYMBOL_HINT = {
+  tw_stock: '打代號或名稱搜尋', us_stock: '打代號或名稱搜尋，例：AAPL',
+  crypto: '打代號或名稱搜尋，例：BTC', fund: '打基金代號或名稱搜尋',
+}
+const HAS_SEARCH = { tw_stock: true, us_stock: true, crypto: true, fund: true }
 const DEBT_LABEL = Object.fromEntries(DEBT_TYPES.map(([k, l]) => [k, l]))
 
 export default function HoldingForm({ editing, template, prices, symbolPrefs, simpleMode, onSave, onClose }) {
@@ -144,7 +147,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
     })
   }
 
-  // 代號有抓到報價時自動帶進現價；台股整包預抓、加密貨幣單獨即時查（debounce）
+  // 代號有抓到報價時自動帶進現價；台股整包預抓，加密貨幣/美股/基金單獨即時查（debounce）
   useEffect(() => {
     setPriceIsLive(false)
     if (!priced || !form.symbol) return
@@ -156,9 +159,13 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
       setPriceIsLive(true)
       return
     }
-    if (category !== 'crypto') return
+    const fetcher = category === 'crypto' ? fetchOneCryptoPrice
+      : category === 'us_stock' ? fetchOneUsStockPrice
+      : category === 'fund' ? fetchOneFundPrice
+      : null
+    if (!fetcher) return
     const t = setTimeout(() => {
-      fetchOneCryptoPrice(symbol).then((live) => {
+      fetcher(symbol).then((live) => {
         if (live == null) return
         setForm((f) => (f.symbol === symbol && f.category === category ? { ...f, price: String(live) } : f))
         setPriceIsLive(true)
@@ -205,7 +212,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
 
         {/* ---------- 第一步：五大分類 ---------- */}
         {step === 1 && (
-          <div className="wizard-grid">
+          <div className="wizard-grid three">
             {CATEGORIES.map((c) => (
               <button key={c.key} className="wizard-tile" onClick={() => pickCategory(c.key)}>
                 <span className="wizard-tile-icon" style={{ color: c.color }}><IconGlyph category={c.key} /></span>
@@ -225,6 +232,29 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
               <span className="wizard-tile-icon"><IconGlyph name="goldbar" /></span><span>ETF</span>
             </button>
           </div>
+        )}
+        {step === 2 && form.category === 'us_stock' && (
+          <div className="wizard-grid two">
+            <button className="wizard-tile" onClick={() => pickSubtype('stock')}>
+              <span className="wizard-tile-icon"><IconGlyph name="chartUp" /></span><span>個股</span>
+            </button>
+            <button className="wizard-tile" onClick={() => pickSubtype('etf')}>
+              <span className="wizard-tile-icon"><IconGlyph name="goldbar" /></span><span>ETF</span>
+            </button>
+          </div>
+        )}
+        {step === 2 && form.category === 'fund' && (
+          <>
+            <div className="wizard-grid two">
+              <button className="wizard-tile" onClick={() => { set('currency', 'TWD'); setStep(3) }}>
+                <span className="wizard-tile-code">TWD</span><span className="wizard-tile-sub">台幣計價</span>
+              </button>
+              <button className="wizard-tile" onClick={() => { set('currency', 'USD'); setStep(3) }}>
+                <span className="wizard-tile-code">USD</span><span className="wizard-tile-sub">美元計價</span>
+              </button>
+            </div>
+            <p className="hint">選這檔基金淨值是用哪個幣別報價（跟你的成本幣別會是同一個）。</p>
+          </>
         )}
         {step === 2 && form.category === 'crypto' && (
           <>
@@ -314,7 +344,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
               </label>
               {showManualPrice && (
                 <label className="field">
-                  <span>現價（{quoteCurrencyOf(form.category)}）</span>
+                  <span>現價（{quoteCurrencyOf(form.category, form)}）</span>
                   <CalcInput value={form.price} onCommit={(v) => set('price', v)} placeholder="抓不到報價，請手動填" />
                 </label>
               )}
@@ -367,7 +397,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
                           <input type="date" value={form.buyDate} onChange={(e) => set('buyDate', e.target.value)} />
                         </label>
                         {perUnit != null && (
-                          <p className="hint">成本單價 ≈ <b>{perUnit.toLocaleString('en-US', { maximumFractionDigits: 2 })} {form.currency}</b>（總投入 ÷ 數量）。市場報價固定是 {quoteCurrencyOf(form.category)}，換算自動處理。</p>
+                          <p className="hint">成本單價 ≈ <b>{perUnit.toLocaleString('en-US', { maximumFractionDigits: 2 })} {form.currency}</b>（總投入 ÷ 數量）。市場報價固定是 {quoteCurrencyOf(form.category, form)}，換算自動處理。</p>
                         )}
                       </>
                     )}
