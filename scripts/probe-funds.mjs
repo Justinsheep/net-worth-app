@@ -1,5 +1,5 @@
-// 第三輪探測：掃描搜尋頁上發現的所有相關頁面，找出真正「列出一堆基金」的那一個。
-// 用法：Actions → "Probe fund list" → Run workflow，跑完把 log 貼回來。
+// 第四輪：確認「基金公司 → 旗下基金列表」這條路徑的網址格式。
+// 已知 YP303000 = 投信列表(BFZ...)、YP303001 = 境外發行公司列表(BFC...)
 
 async function getHtml(url) {
   const res = await fetch(url, {
@@ -11,73 +11,50 @@ async function getHtml(url) {
   if ((html.match(/\uFFFD/g) || []).length > 20) html = new TextDecoder('big5').decode(buf)
   return { status: res.status, finalUrl: res.url, html }
 }
-
 const BASE = 'https://www.moneydj.com'
-const TARGETS = [
-  '/funddj/yb/YP301000.djhtm',   // 國內基金搜尋
-  '/funddj/yb/YP301001.djhtm',
-  '/funddj/yb/YP303000.djhtm',
-  '/funddj/yb/YP303001.djhtm',
-  '/funddj/yb/YP304000.djhtm',
-  '/funddj/ys/YP305000.djhtm',
-  '/funddj/ys/YP305001.djhtm',
-  '/funddj/yl/YP305103.djhtm',
-  '/funddj/yl/YP305104.djhtm',
-  '/funddj/yb/yp081020.djhtm?a=1',
-  '/funddj/yb/yp081020.djhtm?a=2',
-  '/funddj/yb/yp081020.djhtm?a=3',
-  '/funddj/ya/YP401000.djhtm',
-  '/funddj/ya/YP401001.djhtm',
-  '/funddj/ya/YP401002.djhtm',
-  '/funddj/yb/YP081010.djhtm',
-  '/funddj/yp/YP081008.djhtm',
-  '/funddj/ya/yp306.djhtm',
-  '/funddj/ya/yp307.djhtm',
-  '/funddj/ya/yp308.djhtm',
-  '/funddj/ya/yp081003.djhtm',
-  '/funddj/ya/yp081004.djhtm',
-]
+const isFundCode = (c) => /^[A-Z]{2,}\d/.test(c) && !/^BF[ZC]/.test(c) // 排除公司代號
 
-// 基金代號可能出現在多種連結形式裡，放寬比對：任何 .djhtm?a=英數代號 都算候選
-function extractCodes(html) {
-  const codes = new Set()
-  for (const m of html.matchAll(/\.djhtm\?a=([A-Za-z]{2,}\d[A-Za-z0-9]*)/gi)) codes.add(m[1].toUpperCase())
-  return [...codes]
+console.log('════════ A. 公司列表頁：連結長什麼樣 ════════')
+for (const p of ['/funddj/yb/YP303000.djhtm', '/funddj/yb/YP303001.djhtm']) {
+  const { html } = await getHtml(BASE + p)
+  console.log(`\n${p}`)
+  // 印出含公司代號的原始連結，看出網址格式
+  const links = [...new Set([...html.matchAll(/<a[^>]+href=["']([^"']*(?:BF[ZC]\w+)[^"']*)["']/gi)].map((m) => m[1]))]
+  console.log('  含公司代號的連結（前 6 個）：')
+  links.slice(0, 6).forEach((l) => console.log('   ', l))
+  console.log('  總共', links.length, '個')
 }
 
-const found = []
-for (const p of TARGETS) {
-  const url = BASE + p
+console.log('\n\n════════ B. 試著打開一家公司的頁面，看有沒有列出旗下基金 ════════')
+// 用第三輪看到的實際公司代號測試
+const COMPANY_TESTS = [
+  '/funddj/yb/yp303000.djhtm?a=BFZ005',
+  '/funddj/yb/YP303001.djhtm?a=BFC080',
+  '/funddj/ya/yp303001.djhtm?a=BFZ005',
+  '/funddj/yb/yp081020.djhtm?a=BFZ005',
+  '/funddj/yp/yp303000.djhtm?a=BFZ005',
+]
+for (const p of COMPANY_TESTS) {
   try {
-    const { status, finalUrl, html } = await getHtml(url)
+    const { finalUrl, html } = await getHtml(BASE + p)
     const is404 = finalUrl.includes('404.htm')
-    const codes = extractCodes(html)
+    const codes = [...new Set([...html.matchAll(/\.djhtm\?a=([A-Za-z]{2,}\d[A-Za-z0-9]*)/gi)].map((m) => m[1].toUpperCase()))].filter(isFundCode)
     const title = ((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 60)
     console.log(`\n${p}`)
-    console.log(`   ${is404 ? '✗ 404' : '✓ ' + status}　${title}`)
-    if (!is404) {
-      console.log(`   基金代號：${codes.length} 個`, codes.length ? `（例：${codes.slice(0, 10).join(', ')}）` : '')
-      if (codes.length >= 5) found.push({ p, count: codes.length, title })
-      // 有下拉選單代表可以用參數篩選，印出來看看有哪些可選值
-      const selects = [...html.matchAll(/<select[^>]*name=["']?([\w]+)["']?[^>]*>([\s\S]*?)<\/select>/gi)]
-      for (const s of selects.slice(0, 3)) {
-        const opts = [...s[2].matchAll(/<option[^>]*value=["']?([^"'\s>]*)["']?[^>]*>([^<]*)/gi)]
-        if (opts.length > 2) {
-          console.log(`   下拉 ${s[1]}：${opts.length} 選項，例 ${opts.slice(1, 6).map((o) => `${o[1]}=${o[2].trim()}`).join(' | ')}`)
-        }
-      }
-    }
+    console.log(`   ${is404 ? '✗ 404' : '✓'}　${title}`)
+    if (!is404) console.log(`   旗下基金代號：${codes.length} 個`, codes.length ? `（例：${codes.slice(0, 10).join(', ')}）` : '')
   } catch (e) {
     console.log(`\n${p}\n   失敗：${e.message}`)
   }
   await new Promise((r) => setTimeout(r, 300))
 }
 
-console.log('\n\n════════ 結論：有列出基金的頁面 ════════')
-if (found.length) {
-  found.sort((a, b) => b.count - a.count)
-  found.forEach((f) => console.log(`  ${f.count} 檔　${f.p}　${f.title}`))
-} else {
-  console.log('  沒有任何頁面直接列出基金清單（可能都是靠 JS 動態載入）')
+console.log('\n\n════════ C. 「四四三三法則」頁能不能翻更多（195 檔是目前最多的）════════')
+for (const q of ['', '?selRR=1', '?selRR=2', '?selRR=3', '?selRR=4', '?selRR=5']) {
+  const { html } = await getHtml(BASE + '/funddj/yp/YP081008.djhtm' + q)
+  const codes = [...new Set([...html.matchAll(/\.djhtm\?a=([A-Za-z]{2,}\d[A-Za-z0-9]*)/gi)].map((m) => m[1].toUpperCase()))].filter(isFundCode)
+  console.log(`  YP081008.djhtm${q || '(無參數)'} → ${codes.length} 檔`)
+  await new Promise((r) => setTimeout(r, 300))
 }
+
 console.log('\n════════ 探測結束，請把以上內容貼回對話 ════════')
