@@ -236,9 +236,11 @@ async function fundSymbols() {
   const seen = new Set()
 
   // 從一頁裡把「代號 + 中文名稱（+ 幣別 + 淨值，如果那頁有的話）」抓出來
+  // 非基金名稱的連結文字（導覽列、功能連結），比對到就跳過
+  const NOT_FUND_NAME = /^(基本資料|淨值|績效|持股|配息|報酬|走勢|比較|加入|更多|詳細|下載|回上頁|首頁|查詢|排行|新聞|評等|收藏|\d+|[A-Za-z0-9\s.-]+)$/
   function harvest(html) {
     let added = 0
-    // 有淨值的表格列（公司旗下基金淨值頁就是這種）
+    // (a) 有淨值的表格列（發行公司旗下基金淨值頁）
     const full = [...html.matchAll(
       /yp01000[01]\.djhtm\?a=([A-Za-z0-9]+)"[^>]*class="product_name_fund"[^>]*>([^<]+)<\/A>[\s\S]{0,400}?<TD[^>]*>([\d/]{8,10})<\/TD>[\s\S]{0,80}?<TD[^>]*>([^<]*)<\/TD>[\s\S]{0,80}?<TD[^>]*>([\d.,]+)<\/TD>/gi
     )]
@@ -251,13 +253,14 @@ async function fundSymbols() {
       if (Number.isFinite(nav) && nav > 0) navs[code] = nav
       added++
     }
-    // 只有代號+名稱的連結（排行榜、分類頁那種），淨值之後由 Edge Function 或排程補
-    const nameOnly = [...html.matchAll(/yp01000[01]\.djhtm\?a=([A-Za-z0-9]+)"[^>]*class="product_name_fund"[^>]*>([^<]+)</gi)]
-    for (const r of nameOnly) {
+    // (b) 一般的基金連結（分類頁、排行頁；這些頁面的連結沒有 product_name_fund 標記）
+    const links = [...html.matchAll(/yp01000\d\.djhtm\?a=([A-Za-z0-9]+)["'][^>]*>([^<]{2,60})</gi)]
+    for (const r of links) {
       const code = r[1].toUpperCase()
-      if (seen.has(code)) continue
+      const name = r[2].replace(/\s+/g, ' ').trim()
+      if (!name || seen.has(code) || NOT_FUND_NAME.test(name)) continue
       seen.add(code)
-      funds.push({ code, name: r[2].replace(/\s+/g, ' ').trim(), currency: '' })
+      funds.push({ code, name, currency: '' })
       added++
     }
     return added
@@ -300,7 +303,14 @@ async function fundSymbols() {
   }
 
   // ---- 3. 補漏：幾個已知會列出國內基金的排行頁 ----
-  for (const p of ['/funddj/yp/YP081008.djhtm', '/funddj/yb/YP081010.djhtm', '/funddj/ya/yp306.djhtm']) {
+  for (const p of [
+    '/funddj/yp/YP081008.djhtm',
+    '/funddj/yp/YP081008.djhtm?A=1&B=Y',
+    '/funddj/yb/YP081010.djhtm',
+    '/funddj/yb/YP081010.djhtm?A=1',
+    '/funddj/ya/yp081001.djhtm',
+    '/funddj/ya/yp306.djhtm',
+  ]) {
     try {
       harvest(await fetchBig5(MDJ + p))
     } catch { /* 這是補漏用的，失敗就算了 */ }
