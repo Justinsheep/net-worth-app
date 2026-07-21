@@ -259,6 +259,73 @@ async function cryptoSymbols() {
   return out
 }
 
+// ---- 美股報價：伺服器端抓（瀏覽器直連 Stooq 會被 CORS 擋掉）----
+// Stooq 支援一次查多檔（逗號分隔），分批送出避免單一請求過大。
+async function usStockPrices(symbols) {
+  const prices = {}
+  if (!symbols.length) return prices
+  const CHUNK = 200
+  let ok = 0
+  for (let i = 0; i < symbols.length; i += CHUNK) {
+    const batch = symbols.slice(i, i + CHUNK)
+    const q = batch.map((s) => `${s.toLowerCase()}.us`).join(',')
+    try {
+      const res = await fetch(`https://stooq.com/q/l/?s=${encodeURIComponent(q)}&f=sd2t2ohlcv&h&e=csv`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const text = await res.text()
+      for (const line of text.trim().split('\n').slice(1)) {
+        const cols = line.split(',')
+        const sym = String(cols[0] || '').replace(/\.US$/i, '').toUpperCase()
+        const close = Number(cols[6])
+        if (sym && Number.isFinite(close) && close > 0) { prices[sym] = close; ok++ }
+      }
+    } catch (e) {
+      console.warn(`  美股報價批次 ${i}-${i + batch.length} 失敗：${e.message}`)
+    }
+    await new Promise((r) => setTimeout(r, 250)) // 對資料源客氣一點，避免被擋
+  }
+  console.log('美股報價：', ok, '檔')
+  return prices
+}
+
+// ---- 基金淨值：伺服器端抓 MoneyDJ（一樣是 CORS 擋不住的地方）----
+// 基金沒有公開的完整清單可以列舉，所以改成讀 repo 根目錄的 fund-codes.json，
+// 你要追蹤哪幾檔基金就把代號加進那個檔案（例如 ["ACFT01"]）。
+async function fundPrices() {
+  const prices = {}
+  let codes = []
+  try {
+    codes = JSON.parse(await fs.readFile(path.join(root, 'fund-codes.json'), 'utf8'))
+    if (!Array.isArray(codes)) codes = []
+  } catch {
+    console.log('基金：沒有 fund-codes.json，略過（要自動抓淨值就把基金代號加進這個檔案）')
+    return prices
+  }
+  for (const raw of codes) {
+    const code = String(raw || '').trim()
+    if (!code) continue
+    try {
+      const res = await fetch(`https://www.moneydj.com/funddj/ya/yp010000.djhtm?a=${encodeURIComponent(code)}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const html = await res.text()
+      const m = html.match(/<td class="t3n0[^"]*">\d{2}\/\d{2}<\/td>\s*<td class="t3n1[^"]*">([\d.]+)<\/td>/)
+      if (!m) throw new Error('頁面格式不符，找不到淨值')
+      const nav = Number(m[1])
+      if (Number.isFinite(nav) && nav > 0) prices[code.toUpperCase()] = nav
+      else throw new Error('淨值數值異常')
+    } catch (e) {
+      console.warn(`  基金 ${code} 失敗：${e.message}`)
+    }
+    await new Promise((r) => setTimeout(r, 300))
+  }
+  console.log('基金淨值：', Object.keys(prices).length, '檔')
+  return prices
+}
+
 async function main() {
   const [tw, crypto, usStock, fund] = await Promise.all([twData(), cryptoSymbols(), usStockSymbols(), fundSymbols()])
   const now = new Date().toISOString()
@@ -268,13 +335,25 @@ async function main() {
     path.join(root, 'public', 'symbols.json'),
     JSON.stringify({ updatedAt: now, tw_stock: tw.symbols, us_stock: usStock, crypto, fund })
   )
+
+  const [usPrices, fundNav] = await Promise.all([
+    usStockPrices(usStock.map((x) => x.code)),
+    fundPrices(),
+  ])
+
   await fs.writeFile(
     path.join(root, 'public', 'prices.json'),
-    JSON.stringify({ updatedAt: now, tw_stock: tw.prices, tw_stock_chg: tw.chg }, null, 2)
+    JSON.stringify({
+      updatedAt: now,
+      tw_stock: tw.prices,
+      tw_stock_chg: tw.chg,
+      us_stock: usPrices,
+      fund: fundNav,
+    }, null, 2)
   )
 
   console.log(`已寫入 symbols.json（台股 ${tw.symbols.length} 檔、美股 ${usStock.length} 檔、加密貨幣 ${crypto.length} 種、基金 ${fund.length} 檔）`)
-  console.log(`已寫入 prices.json（台股報價 ${Object.keys(tw.prices).length} 檔、漲跌幅 ${Object.keys(tw.chg).length} 檔）`)
+  console.log(`已寫入 prices.json（台股 ${Object.keys(tw.prices).length} 檔、台股漲跌 ${Object.keys(tw.chg).length} 檔、美股 ${Object.keys(usPrices).length} 檔、基金 ${Object.keys(fundNav).length} 檔）`)
 }
 
 main().catch((e) => {

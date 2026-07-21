@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { CATEGORIES, isCashLike, catDefaultCurrency, catColor, quoteCurrencyOf, isStablecoin, priceKey } from '../calc'
-import { fetchOneCryptoPrice, fetchOneUsStockPrice, fetchOneFundPrice } from '../prices'
+import { fetchOneCryptoPrice } from '../prices'
 import { CASH_CURRENCIES } from '../currencies'
 import { DEBT_TYPES } from '../debtTypes'
 import { IconGlyph } from '../icons'
@@ -153,7 +153,9 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
     })
   }
 
-  // 代號有抓到報價時自動帶進現價；台股整包預抓，加密貨幣/美股/基金單獨即時查（debounce）
+  // 代號有抓到報價時自動帶進現價。
+  // 台股/美股/基金的報價由 GitHub Actions 排程抓好放進 prices.json，這裡直接查快取；
+  // 加密貨幣則是瀏覽器可以直連 Binance，所以能即時單獨查（debounce 避免每打一個字就送出）。
   useEffect(() => {
     setPriceIsLive(false)
     if (!priced || !form.symbol) return
@@ -165,13 +167,9 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
       setPriceIsLive(true)
       return
     }
-    const fetcher = category === 'crypto' ? fetchOneCryptoPrice
-      : category === 'us_stock' ? fetchOneUsStockPrice
-      : category === 'fund' ? fetchOneFundPrice
-      : null
-    if (!fetcher) return
+    if (category !== 'crypto') return
     const t = setTimeout(() => {
-      fetcher(symbol).then((live) => {
+      fetchOneCryptoPrice(symbol).then((live) => {
         if (live == null) return
         setForm((f) => (f.symbol === symbol && f.category === category ? { ...f, price: String(live) } : f))
         setPriceIsLive(true)
@@ -360,6 +358,9 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
 
             {priced && priceIsLive && (
               <p className="hint ok-hint">✓ 已抓到現價，會自動更新。</p>
+            )}
+            {priced && !priceIsLive && form.symbol && (form.category === 'us_stock' || form.category === 'fund') && (
+              <p className="hint">這檔還沒有報價快取。先手動填現價即可，系統每 30 分鐘會排程更新一次，之後就會自動接手。</p>
             )}
             {isStable && <p className="hint">USDT 視為約當現金，固定 1 美元計價，不追蹤成本。</p>}
 
