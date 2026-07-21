@@ -167,7 +167,9 @@ async function usStockSymbols() {
     }
     throw new Error(`${filePath} 所有候選網域都失敗`)
   }
-  const NASDAQ_HOSTS = ['ftp.nasdaqtrader.com', 'old.nasdaqtrader.com', 'nasdaqtrader.com']
+  // 實測 ftp. 與 old. 這兩個子網域從 Actions 連線都會失敗，只有主網域可用；
+  // 仍保留陣列結構，萬一主網域哪天失效可以再補候選進來。
+  const NASDAQ_HOSTS = ['nasdaqtrader.com', 'ftp.nasdaqtrader.com']
 
   function parsePipeFile(text, { symbolCol, nameCol, etfCol }) {
     const lines = text.split('\n').filter((l) => l.trim() && !l.startsWith('File Creation Time'))
@@ -254,6 +256,26 @@ async function fundSymbols() {
       added++
     }
     // (b) 一般的基金連結（分類頁、排行頁；這些頁面的連結沒有 product_name_fund 標記）
+    // (b) 分類頁的表格列：名稱 → 基金公司 → 淨值 → 幣別。
+    // 用「幣別必須是已知的中文幣別」當驗證條件，避免把後面的報酬率/標準差誤當成淨值。
+    const CURRENCIES = '台幣|新台幣|美元|美金|歐元|日圓|日幣|人民幣|港幣|英鎊|澳幣|加幣|紐幣|南非幣|瑞士法郎|新加坡幣|韓元|泰銖'
+    const withNav = [...html.matchAll(
+      new RegExp(
+        `yp01000\\d\\.djhtm\\?a=([A-Za-z0-9]+)["']?[^>]*>([^<]{2,60})<[\\s\\S]{0,300}?<td[^>]*>\\s*([\\d,]+\\.?\\d*)\\s*</td>\\s*<td[^>]*>\\s*(${CURRENCIES})\\s*</td>`,
+        'gi'
+      )
+    )]
+    for (const r of withNav) {
+      const code = r[1].toUpperCase()
+      const name = r[2].replace(/\s+/g, ' ').trim()
+      if (!name || seen.has(code) || NOT_FUND_NAME.test(name)) continue
+      seen.add(code)
+      funds.push({ code, name, currency: r[4].trim() })
+      const nav = Number(String(r[3]).replace(/,/g, ''))
+      if (Number.isFinite(nav) && nav > 0) navs[code] = nav
+      added++
+    }
+    // (c) 其餘只有代號+名稱的連結（排行頁那種），淨值由 Edge Function 即時補
     const links = [...html.matchAll(/yp01000\d\.djhtm\?a=([A-Za-z0-9]+)["']?[^>]*>([^<]{2,60})</gi)]
     for (const r of links) {
       const code = r[1].toUpperCase()
