@@ -17,23 +17,39 @@ const CORS_HEADERS = {
 
 const MAX_SYMBOLS = 200 // 防呆：避免有人一次丟太多代號進來
 
-// ---- 美股：Stooq 的 CSV 報價，支援一次查多檔（逗號分隔）----
+// ---- 美股：Yahoo Finance 的公開報價端點 ----
+// 原本用 Stooq，但實測從伺服器端呼叫會回 404（應該是擋了資料中心 IP），改用 Yahoo。
+// 好處是回應裡有昨收價，可以順便算出今日漲跌幅。
+async function fetchOneUsFromYahoo(symbol: string) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+  if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`)
+  const j = await res.json()
+  const meta = j?.chart?.result?.[0]?.meta
+  if (!meta) throw new Error('回應格式不符')
+  const price = Number(meta.regularMarketPrice)
+  if (!Number.isFinite(price) || price <= 0) throw new Error('報價數值異常')
+  const prev = Number(meta.chartPreviousClose ?? meta.previousClose)
+  const changePct = Number.isFinite(prev) && prev > 0 ? (price - prev) / prev : null
+  return { price, changePct }
+}
+
 async function fetchUsPrices(symbols: string[]) {
-  const out: Record<string, number> = {}
-  if (!symbols.length) return out
-  const q = symbols.map((s) => `${s.toLowerCase()}.us`).join(',')
-  const res = await fetch(`https://stooq.com/q/l/?s=${encodeURIComponent(q)}&f=sd2t2ohlcv&h&e=csv`, {
-    headers: { 'User-Agent': 'Mozilla/5.0' },
+  const prices: Record<string, number> = {}
+  const changePct: Record<string, number> = {}
+  const errors: string[] = []
+  if (!symbols.length) return { prices, changePct, errors }
+
+  const results = await Promise.allSettled(symbols.map((s) => fetchOneUsFromYahoo(s)))
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      prices[symbols[i]] = r.value.price
+      if (r.value.changePct != null) changePct[symbols[i]] = r.value.changePct
+    } else {
+      errors.push(`美股 ${symbols[i]}：${r.reason?.message ?? r.reason}`)
+    }
   })
-  if (!res.ok) throw new Error(`Stooq HTTP ${res.status}`)
-  const text = await res.text()
-  for (const line of text.trim().split('\n').slice(1)) {
-    const cols = line.split(',')
-    const sym = String(cols[0] || '').replace(/\.US$/i, '').toUpperCase()
-    const close = Number(cols[6])
-    if (sym && Number.isFinite(close) && close > 0) out[sym] = close
-  }
-  return out
+  return { prices, changePct, errors }
 }
 
 // ---- 基金：MoneyDJ 的基金頁面，解析最新一筆淨值 ----
@@ -64,15 +80,14 @@ Deno.serve(async (req) => {
 
     const errors: string[] = []
     let us: Record<string, number> = {}
+    let usChg: Record<string, number> = {}
     const fund: Record<string, number> = {}
 
     if (usList.length) {
-      try {
-        us = await fetchUsPrices(usList)
-        for (const s of usList) if (us[s] == null) errors.push(`美股 ${s} 沒有報價`)
-      } catch (e) {
-        errors.push(`美股報價失敗：${e instanceof Error ? e.message : String(e)}`)
-      }
+      const r = await fetchUsPrices(usList)
+      us = r.prices
+      usChg = r.changePct
+      errors.push(...r.errors)
     }
 
     if (fundList.length) {
@@ -83,12 +98,12 @@ Deno.serve(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify({ us, fund, errors }), {
+    return new Response(JSON.stringify({ us, usChg, fund, errors }), {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
     return new Response(
-      JSON.stringify({ us: {}, fund: {}, errors: [String(e instanceof Error ? e.message : e)] }),
+      JSON.stringify({ us: {}, usChg: {}, fund: {}, errors: [String(e instanceof Error ? e.message : e)] }),
       { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     )
   }

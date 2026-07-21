@@ -160,6 +160,9 @@ export async function loadPrices(holdings) {
       for (const [sym, price] of Object.entries(j?.us || {})) {
         if (Number.isFinite(Number(price))) out.prices[`us_stock:${sym.toUpperCase()}`] = Number(price)
       }
+      for (const [sym, pct] of Object.entries(j?.usChg || {})) {
+        if (Number.isFinite(Number(pct))) out.changePct[`us_stock:${sym.toUpperCase()}`] = Number(pct)
+      }
       for (const [sym, nav] of Object.entries(j?.fund || {})) {
         if (Number.isFinite(Number(nav))) out.prices[`fund:${sym.toUpperCase()}`] = Number(nav)
       }

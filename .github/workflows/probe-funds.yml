@@ -1,0 +1,16 @@
+name: Probe fund list
+
+# 手動觸發用：到 GitHub 的 Actions 分頁 → 左邊選 "Probe fund list" → 右邊按 "Run workflow"
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Probe MoneyDJ fund list endpoints
+        run: node scripts/probe-funds.mjs

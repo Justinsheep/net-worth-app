@@ -259,34 +259,38 @@ async function cryptoSymbols() {
   return out
 }
 
-// ---- 美股報價：伺服器端抓（瀏覽器直連 Stooq 會被 CORS 擋掉）----
-// Stooq 支援一次查多檔（逗號分隔），分批送出避免單一請求過大。
-async function usStockPrices(symbols) {
+// ---- 美股報價：備援快取用（主要即時報價走 Supabase Edge Function）----
+// 原本用 Stooq 批次查，但實測伺服器端會被回 404，改用 Yahoo；Yahoo 是逐檔查詢，
+// 不適合掃全市場幾千檔，所以這裡只抓 us-codes.json 裡指定的代號當備援快取。
+async function usStockPrices() {
   const prices = {}
-  if (!symbols.length) return prices
-  const CHUNK = 200
-  let ok = 0
-  for (let i = 0; i < symbols.length; i += CHUNK) {
-    const batch = symbols.slice(i, i + CHUNK)
-    const q = batch.map((s) => `${s.toLowerCase()}.us`).join(',')
-    try {
-      const res = await fetch(`https://stooq.com/q/l/?s=${encodeURIComponent(q)}&f=sd2t2ohlcv&h&e=csv`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const text = await res.text()
-      for (const line of text.trim().split('\n').slice(1)) {
-        const cols = line.split(',')
-        const sym = String(cols[0] || '').replace(/\.US$/i, '').toUpperCase()
-        const close = Number(cols[6])
-        if (sym && Number.isFinite(close) && close > 0) { prices[sym] = close; ok++ }
-      }
-    } catch (e) {
-      console.warn(`  美股報價批次 ${i}-${i + batch.length} 失敗：${e.message}`)
-    }
-    await new Promise((r) => setTimeout(r, 250)) // 對資料源客氣一點，避免被擋
+  let codes = []
+  try {
+    codes = JSON.parse(await fs.readFile(path.join(root, 'us-codes.json'), 'utf8'))
+    if (!Array.isArray(codes)) codes = []
+  } catch {
+    console.log('美股報價：沒有 us-codes.json，略過備援快取（即時報價仍由 Edge Function 提供）')
+    return prices
   }
-  console.log('美股報價：', ok, '檔')
+  for (const raw of codes) {
+    const code = String(raw || '').trim().toUpperCase()
+    if (!code) continue
+    try {
+      const res = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code)}?interval=1d&range=1d`,
+        { headers: { 'User-Agent': 'Mozilla/5.0' } }
+      )
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const j = await res.json()
+      const price = Number(j?.chart?.result?.[0]?.meta?.regularMarketPrice)
+      if (Number.isFinite(price) && price > 0) prices[code] = price
+      else throw new Error('報價數值異常')
+    } catch (e) {
+      console.warn(`  美股 ${code} 失敗：${e.message}`)
+    }
+    await new Promise((r) => setTimeout(r, 200))
+  }
+  console.log('美股報價（備援快取）：', Object.keys(prices).length, '檔')
   return prices
 }
 
@@ -337,7 +341,7 @@ async function main() {
   )
 
   const [usPrices, fundNav] = await Promise.all([
-    usStockPrices(usStock.map((x) => x.code)),
+    usStockPrices(),
     fundPrices(),
   ])
 
