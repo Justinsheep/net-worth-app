@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { CATEGORIES, isCashLike, catDefaultCurrency, catColor, quoteCurrencyOf, isStablecoin, priceKey } from '../calc'
-import { fetchOneCryptoPrice } from '../prices'
+import { fetchOneCryptoPrice, fetchOneUsStockPrice, fetchOneFundPrice } from '../prices'
 import { CASH_CURRENCIES } from '../currencies'
 import { DEBT_TYPES } from '../debtTypes'
 import { IconGlyph } from '../icons'
@@ -154,8 +154,8 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
   }
 
   // 代號有抓到報價時自動帶進現價。
-  // 台股/美股/基金的報價由 GitHub Actions 排程抓好放進 prices.json，這裡直接查快取；
-  // 加密貨幣則是瀏覽器可以直連 Binance，所以能即時單獨查（debounce 避免每打一個字就送出）。
+  // 台股走排程快取；加密貨幣瀏覽器可直連 Binance；美股/基金透過自家 Edge Function 代抓。
+  // debounce 700ms：避免打字過程中每個字都送出一次請求。
   useEffect(() => {
     setPriceIsLive(false)
     if (!priced || !form.symbol) return
@@ -167,14 +167,18 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
       setPriceIsLive(true)
       return
     }
-    if (category !== 'crypto') return
+    const fetcher = category === 'crypto' ? fetchOneCryptoPrice
+      : category === 'us_stock' ? fetchOneUsStockPrice
+      : category === 'fund' ? fetchOneFundPrice
+      : null
+    if (!fetcher) return
     const t = setTimeout(() => {
-      fetchOneCryptoPrice(symbol).then((live) => {
+      fetcher(symbol).then((live) => {
         if (live == null) return
         setForm((f) => (f.symbol === symbol && f.category === category ? { ...f, price: String(live) } : f))
         setPriceIsLive(true)
       })
-    }, 400)
+    }, 700)
     return () => clearTimeout(t)
   }, [form.symbol, form.category, prices])
 
@@ -360,7 +364,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
               <p className="hint ok-hint">✓ 已抓到現價，會自動更新。</p>
             )}
             {priced && !priceIsLive && form.symbol && (form.category === 'us_stock' || form.category === 'fund') && (
-              <p className="hint">這檔還沒有報價快取。先手動填現價即可，系統每 30 分鐘會排程更新一次，之後就會自動接手。</p>
+              <p className="hint">還在查詢報價，或這個代號查不到。查不到的話先手動填現價即可。</p>
             )}
             {isStable && <p className="hint">USDT 視為約當現金，固定 1 美元計價，不追蹤成本。</p>}
 
