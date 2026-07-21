@@ -80,6 +80,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
   const [form, setForm] = useState(blank)
   const [moreOpen, setMoreOpen] = useState(false)
   const [priceIsLive, setPriceIsLive] = useState(false)
+  const [priceLoading, setPriceLoading] = useState(false)
   const [padOpen, setPadOpen] = useState(false)
   const [costPadOpen, setCostPadOpen] = useState(false)
 
@@ -158,6 +159,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
   // debounce 700ms：避免打字過程中每個字都送出一次請求。
   useEffect(() => {
     setPriceIsLive(false)
+    setPriceLoading(false)
     if (!priced || !form.symbol) return
     const category = form.category
     const symbol = form.symbol
@@ -172,14 +174,18 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
       : category === 'fund' ? fetchOneFundPrice
       : null
     if (!fetcher) return
+    let cancelled = false
     const t = setTimeout(() => {
-      fetcher(symbol).then((live) => {
-        if (live == null) return
-        setForm((f) => (f.symbol === symbol && f.category === category ? { ...f, price: String(live) } : f))
-        setPriceIsLive(true)
-      })
+      setPriceLoading(true)
+      fetcher(symbol)
+        .then((live) => {
+          if (cancelled || live == null) return
+          setForm((f) => (f.symbol === symbol && f.category === category ? { ...f, price: String(live) } : f))
+          setPriceIsLive(true)
+        })
+        .finally(() => { if (!cancelled) setPriceLoading(false) })
     }, 700)
-    return () => clearTimeout(t)
+    return () => { cancelled = true; clearTimeout(t) }
   }, [form.symbol, form.category, prices])
 
   const q = Number(form.quantity) || 0
@@ -345,7 +351,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
               {showManualPrice && (
                 <label className="field">
                   <span>現價（{quoteCurrencyOf(form.category, form)}）</span>
-                  <CalcInput value={form.price} onCommit={(v) => set('price', v)} placeholder="抓不到報價，請手動填" />
+                  <CalcInput value={form.price} onCommit={(v) => set('price', v)} placeholder={priceLoading ? '查詢中…' : '抓不到報價，請手動填'} />
                 </label>
               )}
               {treatAsCashLike && (
@@ -363,8 +369,11 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
             {priced && priceIsLive && (
               <p className="hint ok-hint">✓ 已抓到現價，會自動更新。</p>
             )}
-            {priced && !priceIsLive && form.symbol && (form.category === 'us_stock' || form.category === 'fund') && (
-              <p className="hint">還在查詢報價，或這個代號查不到。查不到的話先手動填現價即可。</p>
+            {priced && priceLoading && (
+              <p className="hint">正在查詢報價…（第一次查詢可能要幾秒）</p>
+            )}
+            {priced && !priceIsLive && !priceLoading && form.symbol && (form.category === 'us_stock' || form.category === 'fund') && (
+              <p className="hint">這個代號查不到報價，先手動填現價即可。</p>
             )}
             {isStable && <p className="hint">USDT 視為約當現金，固定 1 美元計價，不追蹤成本。</p>}
 
