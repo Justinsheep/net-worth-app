@@ -1,5 +1,4 @@
-// 第四輪：確認「基金公司 → 旗下基金列表」這條路徑的網址格式。
-// 已知 YP303000 = 投信列表(BFZ...)、YP303001 = 境外發行公司列表(BFC...)
+// 第五輪：驗證公司頁 yp303003.djhtm?a=BFC080 能否列出旗下基金，並找出國內投信的對應格式。
 
 async function getHtml(url) {
   const res = await fetch(url, {
@@ -9,51 +8,55 @@ async function getHtml(url) {
   const buf = await res.arrayBuffer()
   let html = new TextDecoder('utf-8').decode(buf)
   if ((html.match(/\uFFFD/g) || []).length > 20) html = new TextDecoder('big5').decode(buf)
-  return { status: res.status, finalUrl: res.url, html }
+  return { finalUrl: res.url, html }
 }
 const BASE = 'https://www.moneydj.com'
-const isFundCode = (c) => /^[A-Z]{2,}\d/.test(c) && !/^BF[ZC]/.test(c) // 排除公司代號
+const isFundCode = (c) => /^[A-Z]{2,}\d/.test(c) && !/^BF[ZC]/.test(c)
+const fundCodes = (html) =>
+  [...new Set([...html.matchAll(/\.djhtm\?a=([A-Za-z]{2,}\d[A-Za-z0-9]*)/gi)].map((m) => m[1].toUpperCase()))].filter(isFundCode)
 
-console.log('════════ A. 公司列表頁：連結長什麼樣 ════════')
-for (const p of ['/funddj/yb/YP303000.djhtm', '/funddj/yb/YP303001.djhtm']) {
-  const { html } = await getHtml(BASE + p)
+console.log('════════ A. 境外公司頁（已知格式）════════')
+for (const code of ['BFC080', 'BFC079', 'BFC034']) {
+  const p = `/funddj/yb/yp303003.djhtm?a=${code}`
+  const { finalUrl, html } = await getHtml(BASE + p)
+  const codes = fundCodes(html)
+  const title = ((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 50)
   console.log(`\n${p}`)
-  // 印出含公司代號的原始連結，看出網址格式
-  const links = [...new Set([...html.matchAll(/<a[^>]+href=["']([^"']*(?:BF[ZC]\w+)[^"']*)["']/gi)].map((m) => m[1]))]
-  console.log('  含公司代號的連結（前 6 個）：')
-  links.slice(0, 6).forEach((l) => console.log('   ', l))
-  console.log('  總共', links.length, '個')
-}
-
-console.log('\n\n════════ B. 試著打開一家公司的頁面，看有沒有列出旗下基金 ════════')
-// 用第三輪看到的實際公司代號測試
-const COMPANY_TESTS = [
-  '/funddj/yb/yp303000.djhtm?a=BFZ005',
-  '/funddj/yb/YP303001.djhtm?a=BFC080',
-  '/funddj/ya/yp303001.djhtm?a=BFZ005',
-  '/funddj/yb/yp081020.djhtm?a=BFZ005',
-  '/funddj/yp/yp303000.djhtm?a=BFZ005',
-]
-for (const p of COMPANY_TESTS) {
-  try {
-    const { finalUrl, html } = await getHtml(BASE + p)
-    const is404 = finalUrl.includes('404.htm')
-    const codes = [...new Set([...html.matchAll(/\.djhtm\?a=([A-Za-z]{2,}\d[A-Za-z0-9]*)/gi)].map((m) => m[1].toUpperCase()))].filter(isFundCode)
-    const title = ((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 60)
-    console.log(`\n${p}`)
-    console.log(`   ${is404 ? '✗ 404' : '✓'}　${title}`)
-    if (!is404) console.log(`   旗下基金代號：${codes.length} 個`, codes.length ? `（例：${codes.slice(0, 10).join(', ')}）` : '')
-  } catch (e) {
-    console.log(`\n${p}\n   失敗：${e.message}`)
-  }
+  console.log(`   ${finalUrl.includes('404') ? '✗404' : '✓'}　${title}`)
+  console.log(`   旗下基金：${codes.length} 檔`, codes.length ? `（例：${codes.slice(0, 8).join(', ')}）` : '')
   await new Promise((r) => setTimeout(r, 300))
 }
 
-console.log('\n\n════════ C. 「四四三三法則」頁能不能翻更多（195 檔是目前最多的）════════')
-for (const q of ['', '?selRR=1', '?selRR=2', '?selRR=3', '?selRR=4', '?selRR=5']) {
-  const { html } = await getHtml(BASE + '/funddj/yp/YP081008.djhtm' + q)
-  const codes = [...new Set([...html.matchAll(/\.djhtm\?a=([A-Za-z]{2,}\d[A-Za-z0-9]*)/gi)].map((m) => m[1].toUpperCase()))].filter(isFundCode)
-  console.log(`  YP081008.djhtm${q || '(無參數)'} → ${codes.length} 檔`)
+console.log('\n\n════════ B. 國內投信列表頁：所有連結樣本 ════════')
+{
+  const { html } = await getHtml(BASE + '/funddj/yb/YP303000.djhtm')
+  const all = [...new Set([...html.matchAll(/<a[^>]+href=["']([^"']+)["']/gi)].map((m) => m[1]))]
+    .filter((h) => /yp30|yb|BFZ|company|comp/i.test(h))
+  console.log('  相關連結（前 25 個）：')
+  all.slice(0, 25).forEach((l) => console.log('   ', l))
+  // BFZ 代號出現在哪些上下文
+  const ctx = [...html.matchAll(/.{80}BFZ\d+.{40}/g)].slice(0, 5)
+  console.log('\n  BFZ 代號周邊文字（前 5 處）：')
+  ctx.forEach((c) => console.log('   ...', c[0].replace(/\s+/g, ' ').trim()))
+}
+
+console.log('\n\n════════ C. 猜國內投信公司頁的格式 ════════')
+for (const p of [
+  '/funddj/yb/yp303002.djhtm?a=BFZ005',
+  '/funddj/yb/yp303003.djhtm?a=BFZ005',
+  '/funddj/yb/yp303004.djhtm?a=BFZ005',
+  '/funddj/ya/yp303002.djhtm?a=BFZ005',
+]) {
+  try {
+    const { finalUrl, html } = await getHtml(BASE + p)
+    const codes = fundCodes(html)
+    const title = ((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 50)
+    console.log(`\n${p}`)
+    console.log(`   ${finalUrl.includes('404') ? '✗404' : '✓'}　${title}`)
+    if (!finalUrl.includes('404')) console.log(`   旗下基金：${codes.length} 檔`, codes.length ? `（例：${codes.slice(0, 8).join(', ')}）` : '')
+  } catch (e) {
+    console.log(`\n${p}\n   失敗：${e.message}`)
+  }
   await new Promise((r) => setTimeout(r, 300))
 }
 
