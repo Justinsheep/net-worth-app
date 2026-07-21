@@ -1,4 +1,4 @@
-// 探測：國內基金改從「國內基金搜尋」的分類代號(ET...)切入，並直接看原始 HTML 的連結寫法。
+// 探測：國內基金分類頁是否有分頁（目前每類只抓到第一頁，總共 279 檔偏少）
 async function getHtml(url) {
   const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }, redirect: 'follow' })
   const buf = await res.arrayBuffer()
@@ -7,49 +7,48 @@ async function getHtml(url) {
   return { finalUrl: res.url, html }
 }
 const BASE = 'https://www.moneydj.com'
-const title = (h) => ((h.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 55)
-const namedFunds = (h) => [...h.matchAll(/yp01000[01]\.djhtm\?a=([A-Za-z0-9]+)"[^>]*class="product_name_fund"[^>]*>([^<]+)</gi)]
+const count = (h) => [...h.matchAll(/yp01000[01]\.djhtm\?a=([A-Za-z0-9]+)"[^>]*class="product_name_fund"/gi)].length
 
-console.log('════ A. 國內基金搜尋頁：ET 代號的連結原文 ════')
+console.log('════ A. 分類頁的分頁線索 ════')
+{
+  const { html } = await getHtml(BASE + '/funddj/yb/YP302000.djhtm?a=ET001001')
+  console.log('  基金數：', count(html))
+  // 找「下一頁 / 頁次」相關連結
+  const pager = [...new Set([...html.matchAll(/href=["']?([^"'\s>]*(?:page|Page|PG|pg|next)[^"'\s>]*)/gi)].map((m) => m[1]))]
+  console.log('  可能的分頁連結：', pager.length, '個')
+  pager.slice(0, 10).forEach((l) => console.log('   ', l))
+  // 中文分頁字樣周邊
+  for (const kw of ['下一頁', '共', '頁']) {
+    const i = html.indexOf(kw)
+    if (i > 0) {
+      console.log(`\n  "${kw}" 周邊：`, html.slice(Math.max(0, i - 200), i + 150).replace(/\s+/g, ' ').slice(0, 320))
+    }
+  }
+  // 所有 YP302000 連結（可能帶頁碼參數）
+  const self = [...new Set([...html.matchAll(/YP302000\.djhtm\?([^"'\s>]+)/gi)].map((m) => m[1]))]
+  console.log('\n  頁面內 YP302000 參數組合：', self.length, '種')
+  self.slice(0, 12).forEach((s) => console.log('   ', s))
+}
+
+console.log('\n════ B. 試常見分頁參數 ════')
+for (const q of ['&b=2', '&page=2', '&P=2', '&pg=2', '&c=2', '&b=1&c=2']) {
+  try {
+    const { html } = await getHtml(BASE + '/funddj/yb/YP302000.djhtm?a=ET001001' + q)
+    console.log(`  ?a=ET001001${q} → ${count(html)} 檔`)
+  } catch (e) {
+    console.log(`  ?a=ET001001${q} → 失敗 ${e.message}`)
+  }
+  await new Promise((r) => setTimeout(r, 300))
+}
+
+console.log('\n════ C. 各分類目前抓到幾檔 ════')
 {
   const { html } = await getHtml(BASE + '/funddj/yb/YP301000.djhtm')
-  const i = html.search(/ET001001/i)
-  if (i > 0) {
-    console.log('  ET001001 周邊 700 字元：')
-    console.log('  ---8<---')
-    console.log(html.slice(Math.max(0, i - 400), i + 300).replace(/\s+/g, ' '))
-    console.log('  ---8<---')
+  const cats = [...new Set([...html.matchAll(/YP302000\.djhtm\?a=(ET\d+)/gi)].map((m) => m[1].toUpperCase()))]
+  for (const cat of cats.slice(0, 8)) {
+    const { html: h } = await getHtml(BASE + `/funddj/yb/YP302000.djhtm?a=${cat}`)
+    console.log(`  ${cat} → ${count(h)} 檔`)
+    await new Promise((r) => setTimeout(r, 250))
   }
-  const forms = [...html.matchAll(/<form[^>]*>/gi)].map((m) => m[0])
-  console.log('\n  表單：', forms.length, '個')
-  forms.slice(0, 3).forEach((f) => console.log('   ', f.slice(0, 250)))
-}
-
-console.log('\n\n════ B. 試用分類代號列出國內基金 ════')
-for (const p of [
-  '/funddj/yb/YP301000.djhtm?a=ET001001',
-  '/funddj/yp/yp301001.djhtm?a=ET001001',
-  '/funddj/yb/yp301002.djhtm?a=ET001001',
-  '/funddj/ya/YP401000.djhtm?a=ET001001',
-  '/funddj/yp/yp010000.djhtm?a=ET001001',
-]) {
-  try {
-    const { finalUrl, html } = await getHtml(BASE + p)
-    const rows = namedFunds(html)
-    console.log(`\n${p}`)
-    console.log(`   ${finalUrl.includes('404') ? '✗404' : '✓'}　${title(html)}`)
-    console.log(`   有名稱的基金：${rows.length} 檔`, rows.length ? `（例：${rows.slice(0, 3).map((r) => r[1] + '=' + r[2].trim().slice(0, 20)).join(' | ')}）` : '')
-  } catch (e) {
-    console.log(`\n${p}\n   失敗：${e.message}`)
-  }
-  await new Promise((r) => setTimeout(r, 300))
-}
-
-console.log('\n\n════ C. 已知有國內基金的頁面，能抓到名稱嗎 ════')
-for (const p of ['/funddj/yp/YP081008.djhtm', '/funddj/yb/YP081010.djhtm', '/funddj/ya/YP401000.djhtm', '/funddj/ya/YP401002.djhtm']) {
-  const { html } = await getHtml(BASE + p)
-  const rows = namedFunds(html)
-  console.log(`  ${p} → ${rows.length} 檔`, rows.length ? `（例：${rows.slice(0, 2).map((r) => r[1] + '=' + r[2].trim().slice(0, 20)).join(' | ')}）` : '')
-  await new Promise((r) => setTimeout(r, 300))
 }
 console.log('\n════ 探測結束 ════')
