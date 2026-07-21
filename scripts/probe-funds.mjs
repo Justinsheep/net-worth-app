@@ -1,4 +1,5 @@
-// 第五輪：驗證公司頁 yp303003.djhtm?a=BFC080 能否列出旗下基金，並找出國內投信的對應格式。
+// 第六輪：yp303004.djhtm = 「境外發行公司旗下基金淨值」，用正確的 BFC 代號驗證。
+// 另外找國內投信的對應頁（線索：YP053000_FB000001.djhtm 這種格式）。
 
 async function getHtml(url) {
   const res = await fetch(url, {
@@ -14,46 +15,50 @@ const BASE = 'https://www.moneydj.com'
 const isFundCode = (c) => /^[A-Z]{2,}\d/.test(c) && !/^BF[ZC]/.test(c)
 const fundCodes = (html) =>
   [...new Set([...html.matchAll(/\.djhtm\?a=([A-Za-z]{2,}\d[A-Za-z0-9]*)/gi)].map((m) => m[1].toUpperCase()))].filter(isFundCode)
+const title = (html) => ((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 55)
 
-console.log('════════ A. 境外公司頁（已知格式）════════')
-for (const code of ['BFC080', 'BFC079', 'BFC034']) {
-  const p = `/funddj/yb/yp303003.djhtm?a=${code}`
-  const { finalUrl, html } = await getHtml(BASE + p)
+console.log('════════ A. 境外公司旗下基金淨值頁（用 BFC 代號）════════')
+for (const code of ['BFC080', 'BFC034', 'BFC169', 'BFC186']) {
+  const p = `/funddj/yb/yp303004.djhtm?a=${code}`
+  const { html } = await getHtml(BASE + p)
   const codes = fundCodes(html)
-  const title = ((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 50)
   console.log(`\n${p}`)
-  console.log(`   ${finalUrl.includes('404') ? '✗404' : '✓'}　${title}`)
-  console.log(`   旗下基金：${codes.length} 檔`, codes.length ? `（例：${codes.slice(0, 8).join(', ')}）` : '')
-  await new Promise((r) => setTimeout(r, 300))
+  console.log(`   ${title(html)}`)
+  console.log(`   旗下基金：${codes.length} 檔`, codes.length ? `（例：${codes.slice(0, 10).join(', ')}）` : '')
+  // 順便看看基金名稱抓不抓得到（中文名是搜尋建議的關鍵）
+  if (codes.length) {
+    const rows = [...html.matchAll(/yp010000\.djhtm\?a=([A-Za-z0-9]+)[^>]*>([^<]{2,60})</gi)].slice(0, 5)
+    console.log('   名稱樣本：')
+    rows.forEach((r) => console.log(`     ${r[1].toUpperCase()} → ${r[2].trim()}`))
+  }
+  await new Promise((r) => setTimeout(r, 350))
 }
 
-console.log('\n\n════════ B. 國內投信列表頁：所有連結樣本 ════════')
+console.log('\n\n════════ B. 國內投信：找公司代號與旗下基金頁 ════════')
 {
   const { html } = await getHtml(BASE + '/funddj/yb/YP303000.djhtm')
-  const all = [...new Set([...html.matchAll(/<a[^>]+href=["']([^"']+)["']/gi)].map((m) => m[1]))]
-    .filter((h) => /yp30|yb|BFZ|company|comp/i.test(h))
-  console.log('  相關連結（前 25 個）：')
-  all.slice(0, 25).forEach((l) => console.log('   ', l))
-  // BFZ 代號出現在哪些上下文
-  const ctx = [...html.matchAll(/.{80}BFZ\d+.{40}/g)].slice(0, 5)
-  console.log('\n  BFZ 代號周邊文字（前 5 處）：')
-  ctx.forEach((c) => console.log('   ...', c[0].replace(/\s+/g, ' ').trim()))
+  // 找 YP053000_XXXX 這種格式的連結
+  const comp = [...new Set([...html.matchAll(/YP053000_([A-Za-z0-9]+)\.djhtm/gi)].map((m) => m[1].toUpperCase()))]
+  console.log('  YP053000_ 型連結：', comp.length, '個', comp.slice(0, 12).join(', '))
+  // 頁面上所有 .djhtm 連結，看國內投信怎麼連
+  const links = [...new Set([...html.matchAll(/href=["']([^"']*\.djhtm[^"']*)["']/gi)].map((m) => m[1]))]
+  console.log('  頁面所有 djhtm 連結：', links.length, '個（前 20）')
+  links.slice(0, 20).forEach((l) => console.log('   ', l))
 }
 
-console.log('\n\n════════ C. 猜國內投信公司頁的格式 ════════')
+console.log('\n\n════════ C. 試國內投信旗下基金頁的可能格式 ════════')
 for (const p of [
-  '/funddj/yb/yp303002.djhtm?a=BFZ005',
-  '/funddj/yb/yp303003.djhtm?a=BFZ005',
-  '/funddj/yb/yp303004.djhtm?a=BFZ005',
-  '/funddj/ya/yp303002.djhtm?a=BFZ005',
+  '/funddj/yb/YP053000_FB000001.djhtm',
+  '/funddj/yb/yp303002.djhtm?a=BFZ002',
+  '/funddj/yb/yp303005.djhtm?a=BFZ002',
+  '/funddj/yb/yp303006.djhtm?a=BFZ002',
 ]) {
   try {
     const { finalUrl, html } = await getHtml(BASE + p)
     const codes = fundCodes(html)
-    const title = ((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim().slice(0, 50)
     console.log(`\n${p}`)
-    console.log(`   ${finalUrl.includes('404') ? '✗404' : '✓'}　${title}`)
-    if (!finalUrl.includes('404')) console.log(`   旗下基金：${codes.length} 檔`, codes.length ? `（例：${codes.slice(0, 8).join(', ')}）` : '')
+    console.log(`   ${finalUrl.includes('404') ? '✗404' : '✓'}　${title(html)}`)
+    if (!finalUrl.includes('404')) console.log(`   基金：${codes.length} 檔`, codes.length ? `（例：${codes.slice(0, 10).join(', ')}）` : '')
   } catch (e) {
     console.log(`\n${p}\n   失敗：${e.message}`)
   }
