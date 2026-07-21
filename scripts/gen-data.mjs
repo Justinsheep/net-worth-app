@@ -254,7 +254,7 @@ async function fundSymbols() {
       added++
     }
     // (b) 一般的基金連結（分類頁、排行頁；這些頁面的連結沒有 product_name_fund 標記）
-    const links = [...html.matchAll(/yp01000\d\.djhtm\?a=([A-Za-z0-9]+)["'][^>]*>([^<]{2,60})</gi)]
+    const links = [...html.matchAll(/yp01000\d\.djhtm\?a=([A-Za-z0-9]+)["']?[^>]*>([^<]{2,60})</gi)]
     for (const r of links) {
       const code = r[1].toUpperCase()
       const name = r[2].replace(/\s+/g, ' ').trim()
