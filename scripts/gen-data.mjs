@@ -217,11 +217,62 @@ async function usStockSymbols() {
   return out
 }
 
-// 基金清單：目前留空。台灣基金淨值分散在各基金公司/代銷平台，投信投顧公會雖有公開資料，
-// 但這邊沒辦法連線實際驗證清單/淨值格式，怕接錯造成誤導，所以先不接——
-// 「基金」分類本身已經可以用，只是代號要自己手動輸入，現價也要手動填。
+// 基金清單與淨值：MoneyDJ 的「發行公司 → 旗下基金淨值」頁一次就有代號、中文名稱、幣別、淨值。
+// 路徑：公司列表 YP303001（境外，BFC 代號）→ 逐家打開 yp303004.djhtm?a=公司代號&b=1
+// 這是實際探測驗證過的結構，抓不到就跳過那一家，不影響其他。
+async function fetchBig5(url) {
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const buf = await res.arrayBuffer()
+  let html = new TextDecoder('utf-8').decode(buf)
+  if ((html.match(/\uFFFD/g) || []).length > 20) html = new TextDecoder('big5').decode(buf)
+  return html
+}
+
 async function fundSymbols() {
-  return []
+  const MDJ = 'https://www.moneydj.com'
+  const funds = []
+  const navs = {}
+  const seen = new Set()
+
+  // 1. 取得所有境外發行公司代號
+  let companies = []
+  try {
+    const html = await fetchBig5(`${MDJ}/funddj/yb/YP303001.djhtm`)
+    companies = [...new Set([...html.matchAll(/yp303003\.djhtm\?a=(BFC\w+)/gi)].map((m) => m[1].toUpperCase()))]
+    console.log('基金發行公司：', companies.length, '家')
+  } catch (e) {
+    console.warn('基金公司列表失敗：', e.message)
+    return { funds, navs }
+  }
+
+  // 2. 逐家抓旗下基金（代號 + 中文名稱 + 幣別 + 淨值）
+  for (const co of companies) {
+    try {
+      const html = await fetchBig5(`${MDJ}/funddj/yp/yp303004.djhtm?a=${co}&b=1`)
+      // 每一列：<A href="...yp010001.djhtm?a=代號" class="product_name_fund">名稱</A> 後面接 日期/幣別/淨值
+      const rows = [...html.matchAll(
+        /yp01000[01]\.djhtm\?a=([A-Za-z0-9]+)"[^>]*class="product_name_fund"[^>]*>([^<]+)<\/A>[\s\S]{0,400}?<TD[^>]*>([\d/]{8,10})<\/TD>[\s\S]{0,80}?<TD[^>]*>([^<]*)<\/TD>[\s\S]{0,80}?<TD[^>]*>([\d.,]+)<\/TD>/gi
+      )]
+      for (const r of rows) {
+        const code = r[1].toUpperCase()
+        const name = r[2].replace(/\s+/g, ' ').trim()
+        const currency = r[4].replace(/\s+/g, '').trim()
+        const nav = Number(String(r[5]).replace(/,/g, ''))
+        if (!code || !name || seen.has(code)) continue
+        seen.add(code)
+        funds.push({ code, name, currency })
+        if (Number.isFinite(nav) && nav > 0) navs[code] = nav
+      }
+    } catch (e) {
+      console.warn(`  基金公司 ${co} 失敗：${e.message}`)
+    }
+    await new Promise((r) => setTimeout(r, 250)) // 對來源客氣一點
+  }
+
+  funds.sort((a, b) => a.code.localeCompare(b.code))
+  console.log('基金：', funds.length, '檔（含淨值', Object.keys(navs).length, '檔）')
+  return { funds, navs }
 }
 
 const CRYPTO_NAMES = {
@@ -331,8 +382,9 @@ async function fundPrices() {
 }
 
 async function main() {
-  const [tw, crypto, usStock, fund] = await Promise.all([twData(), cryptoSymbols(), usStockSymbols(), fundSymbols()])
+  const [tw, crypto, usStock, fundData] = await Promise.all([twData(), cryptoSymbols(), usStockSymbols(), fundSymbols()])
   const now = new Date().toISOString()
+  const fund = fundData.funds
 
   await fs.mkdir(path.join(root, 'public'), { recursive: true })
   await fs.writeFile(
@@ -340,10 +392,12 @@ async function main() {
     JSON.stringify({ updatedAt: now, tw_stock: tw.symbols, us_stock: usStock, crypto, fund })
   )
 
-  const [usPrices, fundNav] = await Promise.all([
+  const [usPrices, fundNavExtra] = await Promise.all([
     usStockPrices(),
     fundPrices(),
   ])
+  // 爬清單時順手抓到的淨值當底，fund-codes.json 指定的再覆蓋上去（那些通常更即時）
+  const fundNav = { ...fundData.navs, ...fundNavExtra }
 
   await fs.writeFile(
     path.join(root, 'public', 'prices.json'),
