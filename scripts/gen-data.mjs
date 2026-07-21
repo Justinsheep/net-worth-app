@@ -235,43 +235,81 @@ async function fundSymbols() {
   const navs = {}
   const seen = new Set()
 
-  // 1. 取得所有境外發行公司代號
-  let companies = []
+  // 從一頁裡把「代號 + 中文名稱（+ 幣別 + 淨值，如果那頁有的話）」抓出來
+  function harvest(html) {
+    let added = 0
+    // 有淨值的表格列（公司旗下基金淨值頁就是這種）
+    const full = [...html.matchAll(
+      /yp01000[01]\.djhtm\?a=([A-Za-z0-9]+)"[^>]*class="product_name_fund"[^>]*>([^<]+)<\/A>[\s\S]{0,400}?<TD[^>]*>([\d/]{8,10})<\/TD>[\s\S]{0,80}?<TD[^>]*>([^<]*)<\/TD>[\s\S]{0,80}?<TD[^>]*>([\d.,]+)<\/TD>/gi
+    )]
+    for (const r of full) {
+      const code = r[1].toUpperCase()
+      if (seen.has(code)) continue
+      seen.add(code)
+      funds.push({ code, name: r[2].replace(/\s+/g, ' ').trim(), currency: r[4].replace(/\s+/g, '').trim() })
+      const nav = Number(String(r[5]).replace(/,/g, ''))
+      if (Number.isFinite(nav) && nav > 0) navs[code] = nav
+      added++
+    }
+    // 只有代號+名稱的連結（排行榜、分類頁那種），淨值之後由 Edge Function 或排程補
+    const nameOnly = [...html.matchAll(/yp01000[01]\.djhtm\?a=([A-Za-z0-9]+)"[^>]*class="product_name_fund"[^>]*>([^<]+)</gi)]
+    for (const r of nameOnly) {
+      const code = r[1].toUpperCase()
+      if (seen.has(code)) continue
+      seen.add(code)
+      funds.push({ code, name: r[2].replace(/\s+/g, ' ').trim(), currency: '' })
+      added++
+    }
+    return added
+  }
+
+  // ---- 1. 境外基金：發行公司列表 → 逐家抓旗下基金淨值 ----
   try {
     const html = await fetchBig5(`${MDJ}/funddj/yb/YP303001.djhtm`)
-    companies = [...new Set([...html.matchAll(/yp303003\.djhtm\?a=(BFC\w+)/gi)].map((m) => m[1].toUpperCase()))]
+    const companies = [...new Set([...html.matchAll(/yp303003\.djhtm\?a=(BFC\w+)/gi)].map((m) => m[1].toUpperCase()))]
     console.log('基金發行公司：', companies.length, '家')
+    for (const co of companies) {
+      try {
+        harvest(await fetchBig5(`${MDJ}/funddj/yp/yp303004.djhtm?a=${co}&b=1`))
+      } catch (e) {
+        console.warn(`  基金公司 ${co} 失敗：${e.message}`)
+      }
+      await new Promise((r) => setTimeout(r, 250))
+    }
+    console.log('  境外基金小計：', funds.length, '檔')
   } catch (e) {
     console.warn('基金公司列表失敗：', e.message)
-    return { funds, navs }
   }
 
-  // 2. 逐家抓旗下基金（代號 + 中文名稱 + 幣別 + 淨值）
-  for (const co of companies) {
-    try {
-      const html = await fetchBig5(`${MDJ}/funddj/yp/yp303004.djhtm?a=${co}&b=1`)
-      // 每一列：<A href="...yp010001.djhtm?a=代號" class="product_name_fund">名稱</A> 後面接 日期/幣別/淨值
-      const rows = [...html.matchAll(
-        /yp01000[01]\.djhtm\?a=([A-Za-z0-9]+)"[^>]*class="product_name_fund"[^>]*>([^<]+)<\/A>[\s\S]{0,400}?<TD[^>]*>([\d/]{8,10})<\/TD>[\s\S]{0,80}?<TD[^>]*>([^<]*)<\/TD>[\s\S]{0,80}?<TD[^>]*>([\d.,]+)<\/TD>/gi
-      )]
-      for (const r of rows) {
-        const code = r[1].toUpperCase()
-        const name = r[2].replace(/\s+/g, ' ').trim()
-        const currency = r[4].replace(/\s+/g, '').trim()
-        const nav = Number(String(r[5]).replace(/,/g, ''))
-        if (!code || !name || seen.has(code)) continue
-        seen.add(code)
-        funds.push({ code, name, currency })
-        if (Number.isFinite(nav) && nav > 0) navs[code] = nav
+  // ---- 2. 國內基金：國內基金搜尋頁的分類 → 逐類抓 ----
+  const before = funds.length
+  try {
+    const html = await fetchBig5(`${MDJ}/funddj/yb/YP301000.djhtm`)
+    const cats = [...new Set([...html.matchAll(/YP302000\.djhtm\?a=(ET\d+)/gi)].map((m) => m[1].toUpperCase()))]
+    console.log('國內基金分類：', cats.length, '類')
+    for (const cat of cats) {
+      try {
+        harvest(await fetchBig5(`${MDJ}/funddj/yb/YP302000.djhtm?a=${cat}`))
+      } catch (e) {
+        console.warn(`  分類 ${cat} 失敗：${e.message}`)
       }
-    } catch (e) {
-      console.warn(`  基金公司 ${co} 失敗：${e.message}`)
+      await new Promise((r) => setTimeout(r, 250))
     }
-    await new Promise((r) => setTimeout(r, 250)) // 對來源客氣一點
+  } catch (e) {
+    console.warn('國內基金分類失敗：', e.message)
   }
+
+  // ---- 3. 補漏：幾個已知會列出國內基金的排行頁 ----
+  for (const p of ['/funddj/yp/YP081008.djhtm', '/funddj/yb/YP081010.djhtm', '/funddj/ya/yp306.djhtm']) {
+    try {
+      harvest(await fetchBig5(MDJ + p))
+    } catch { /* 這是補漏用的，失敗就算了 */ }
+    await new Promise((r) => setTimeout(r, 250))
+  }
+  console.log('  國內基金小計：', funds.length - before, '檔')
 
   funds.sort((a, b) => a.code.localeCompare(b.code))
-  console.log('基金：', funds.length, '檔（含淨值', Object.keys(navs).length, '檔）')
+  console.log('基金合計：', funds.length, '檔（含淨值', Object.keys(navs).length, '檔）')
   return { funds, navs }
 }
 
