@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { TW_BANKS } from '../banks'
 import { useFloatingRect } from '../useFloatingRect'
 
-export default function BankSearch({ value, onChange, onSelect, onEnter, placeholder, autoFocus }) {
+export default function BankSearch({ value, onChange, onSelect, placeholder, autoFocus }) {
   const [open, setOpen] = useState(false)
   const [matches, setMatches] = useState(TW_BANKS)
   const boxRef = useRef(null)
@@ -39,13 +39,6 @@ export default function BankSearch({ value, onChange, onSelect, onEnter, placeho
         value={value}
         onChange={(e) => onType(e.target.value)}
         onFocus={() => { const q = value.trim(); if (q) { setMatches(TW_BANKS.filter((b) => b.includes(q))); setOpen(true) } }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            setOpen(false)
-            onEnter?.()
-          }
-        }}
         placeholder={placeholder}
         autoComplete="off"
         autoFocus={autoFocus}

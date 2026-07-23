@@ -14,6 +14,7 @@ import HoldingDetailPage from './components/HoldingDetailPage'
 import ConfirmClearModal from './components/ConfirmClearModal'
 import DeletedPanel from './components/DeletedPanel'
 import SpotlightTour from './components/SpotlightTour'
+import TransferForm from './components/TransferForm'
 
 const TAB_ORDER = ['overview', 'holdings', 'trend', 'settings']
 
@@ -65,6 +66,7 @@ export default function App() {
   const [clearOpen, setClearOpen] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
   const [symbolPrefs, setSymbolPrefs] = useState({})
   const [simpleMode, setSimpleMode] = useState(false)
   const [detailKey, setDetailKey] = useState(null)
@@ -556,6 +558,16 @@ export default function App() {
         )}
       </main>
 
+      <button
+        className={'fab fab-sub' + (chromeHidden ? ' chrome-hidden' : '')}
+        onClick={() => setTransferOpen(true)}
+        aria-label="記一筆交易（買入 / 賣出 / 轉帳）"
+        title="記一筆交易"
+      >
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5" />
+        </svg>
+      </button>
       <button className={'fab' + (chromeHidden ? ' chrome-hidden' : '')} data-tour="fab" onClick={openAdd} aria-label="新增持倉或負債">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
           <path d="M12 4v16M4 12h16" />
@@ -593,6 +605,12 @@ export default function App() {
             />
           </div>
         </div>
+      )}
+      {transferOpen && (
+        <TransferForm
+          holdings={holdings} fx={fx} fxRates={fxRates} prices={prices}
+          onClose={() => setTransferOpen(false)}
+        />
       )}
       {showOnboarding && (
         <SpotlightTour activeTab={tab} onNavigate={setTab} onFinish={finishOnboarding} />

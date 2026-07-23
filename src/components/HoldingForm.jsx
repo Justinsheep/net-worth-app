@@ -272,24 +272,10 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
           </>
         )}
         {step === 2 && form.category === 'bank' && (
-          <>
-            <label className="field">
-              <span>選銀行</span>
-              <BankSearch
-                value={form.bankName}
-                onChange={(v) => set('bankName', v)}
-                onSelect={pickBank}
-                onEnter={() => form.bankName.trim() && setStep(3)}
-                placeholder="打名稱搜尋，例：國泰世華"
-                autoFocus
-              />
-            </label>
-            <p className="hint">清單裡沒有的也可以用——直接打名稱（例如郵局、農會、券商交割戶）再按「下一步」。</p>
-            <div className="modal-actions">
-              <button className="btn ghost" onClick={onClose}>取消</button>
-              <button className="btn primary" disabled={!form.bankName.trim()} onClick={() => setStep(3)}>下一步</button>
-            </div>
-          </>
+          <label className="field">
+            <span>選銀行</span>
+            <BankSearch value={form.bankName} onChange={(v) => set('bankName', v)} onSelect={pickBank} placeholder="打名稱搜尋，例：國泰世華" autoFocus />
+          </label>
         )}
         {step === 2 && form.category === 'debt' && (
           <div className="wizard-grid three">

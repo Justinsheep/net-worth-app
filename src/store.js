@@ -53,6 +53,76 @@ export const store = {
     })
   },
 
+  // ---- 交易：一次動到兩邊（買入 / 賣出 / 轉帳）----
+  // 全部包在同一個交易裡，避免只成功一半導致帳目對不起來。
+
+  // 買入：從帳戶扣款，並新增一筆持倉
+  async applyBuy({ sourceId, deduct, holding }) {
+    const now = Date.now()
+    await db.transaction('rw', db.holdings, async () => {
+      const src = await db.holdings.get(sourceId)
+      if (!src) throw new Error('找不到扣款帳戶')
+      await db.holdings.update(sourceId, {
+        quantity: Number(src.quantity || 0) - Number(deduct || 0),
+        updatedAt: now,
+      })
+      await db.holdings.add({ ...holding, id: uid(), deleted: false, updatedAt: now })
+    })
+  },
+
+  // 賣出：依買入日期先進先出扣減股數（成本同比例扣減，讓剩下部位的成本均價維持正確），
+  // 賣完的那一筆軟刪除；款項加進指定帳戶。
+  async applySell({ lots, sellQty, destId, credit }) {
+    const now = Date.now()
+    await db.transaction('rw', db.holdings, async () => {
+      let remain = Number(sellQty || 0)
+      const ordered = [...lots].sort((a, b) => String(a.buyDate || '').localeCompare(String(b.buyDate || '')))
+      for (const lot of ordered) {
+        if (remain <= 0) break
+        const have = Number(lot.quantity || 0)
+        if (have <= 0) continue
+        const take = Math.min(have, remain)
+        remain -= take
+        const left = have - take
+        const ratio = have ? left / have : 0
+        if (left <= 0.00000001) {
+          await db.holdings.update(lot.id, { quantity: 0, deleted: true, updatedAt: now })
+        } else {
+          await db.holdings.update(lot.id, {
+            quantity: left,
+            // 成本同比例縮減，剩下部位的成本均價才不會失真
+            ...(lot.totalCost ? { totalCost: Number(lot.totalCost) * ratio } : {}),
+            updatedAt: now,
+          })
+        }
+      }
+      const dest = await db.holdings.get(destId)
+      if (!dest) throw new Error('找不到入帳帳戶')
+      await db.holdings.update(destId, {
+        quantity: Number(dest.quantity || 0) + Number(credit || 0),
+        updatedAt: now,
+      })
+    })
+  },
+
+  // 轉帳：A 帳戶扣、B 帳戶加（跨幣別時兩邊金額各自填）
+  async applyTransfer({ fromId, fromAmount, toId, toAmount }) {
+    const now = Date.now()
+    await db.transaction('rw', db.holdings, async () => {
+      const from = await db.holdings.get(fromId)
+      const to = await db.holdings.get(toId)
+      if (!from || !to) throw new Error('找不到帳戶')
+      await db.holdings.update(fromId, {
+        quantity: Number(from.quantity || 0) - Number(fromAmount || 0),
+        updatedAt: now,
+      })
+      await db.holdings.update(toId, {
+        quantity: Number(to.quantity || 0) + Number(toAmount || 0),
+        updatedAt: now,
+      })
+    })
+  },
+
   // ---- 設定（例如 USD/TWD 匯率）----
   async getSetting(key, fallback) {
     const r = await db.settings.get(key)
