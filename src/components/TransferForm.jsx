@@ -131,9 +131,12 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
 
   const sameCurrency = source && dest && source.currency === dest.currency
 
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
   // ---- 摘要與驗證 ----
   let summary = null
   let invalid = ''
+  let previewRows = [] // 確認視窗用：每個帳戶／部位的前後變化
 
   if (mode === 'buy') {
     const gross = num(amount) + num(fee)
@@ -149,6 +152,20 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
     else if (!symbol.trim()) invalid = '請填代號'
     else if (num(qty) <= 0) invalid = '請填數量'
     if (!invalid) {
+      previewRows = [
+        {
+          label: source.name,
+          before: Number(source.quantity || 0),
+          after: Number(source.quantity || 0) - gross,
+          delta: -gross,
+          unit: source.currency,
+        },
+        {
+          label: name || symbol,
+          isNew: true,
+          note: `新增 ${fmtQty(num(qty))} ${qtyUnit(buyCat)}，成本 ${fmtNum(costValue)} ${costCurrency}`,
+        },
+      ]
       summary = (
         <>
           <div>從 <b>{source.name}</b> 扣 <b>{fmtNum(gross)} {source.currency}</b>
@@ -175,6 +192,23 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
     else if (!dest) invalid = '請選擇入帳帳戶'
     else if (num(amount) <= 0) invalid = '請填賣出金額'
     if (!invalid) {
+      previewRows = [
+        {
+          label: position.name,
+          before: position.qty,
+          after: position.qty - num(sellQty),
+          delta: -num(sellQty),
+          unit: qtyUnit(position.category),
+          isQty: true,
+        },
+        {
+          label: dest.name,
+          before: Number(dest.quantity || 0),
+          after: Number(dest.quantity || 0) + credit,
+          delta: credit,
+          unit: dest.currency,
+        },
+      ]
       summary = (
         <>
           <div>賣出 <b>{position.name}</b> {fmtQty(num(sellQty))} {qtyUnit(position.category)}
@@ -197,6 +231,23 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
       invalid = `餘額不足：${source.name} 只有 ${fmtNum(source.quantity)} ${source.currency}`
     else if (!sameCurrency && num(amount2) <= 0) invalid = '請填轉入金額'
     if (!invalid) {
+      const credited = sameCurrency ? num(amount) : num(amount2)
+      previewRows = [
+        {
+          label: source.name,
+          before: Number(source.quantity || 0),
+          after: Number(source.quantity || 0) - out,
+          delta: -out,
+          unit: source.currency,
+        },
+        {
+          label: dest.name,
+          before: Number(dest.quantity || 0),
+          after: Number(dest.quantity || 0) + credited,
+          delta: credited,
+          unit: dest.currency,
+        },
+      ]
       summary = (
         <>
           <div><b>{source.name}</b> 減少 <b>{fmtNum(out)} {source.currency}</b>
@@ -251,6 +302,7 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
       onClose()
     } catch (e) {
       setError(e?.message || '操作失敗，請再試一次')
+      setConfirmOpen(false)
       setBusy(false)
     }
   }
@@ -392,10 +444,54 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
 
             <div className="modal-actions">
               <button className="btn ghost" onClick={onClose}>取消</button>
-              <button className="btn primary" disabled={!!invalid || busy} onClick={submit}>
-                {busy ? '處理中…' : '確認'}
+              <button className="btn primary" disabled={!!invalid || busy} onClick={() => setConfirmOpen(true)}>
+                確認
               </button>
             </div>
+
+            {confirmOpen && (
+              <div className="modal-backdrop tx-confirm-backdrop" onClick={() => !busy && setConfirmOpen(false)}>
+                <div className="modal tx-confirm" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-head">
+                    <span />
+                    <h2>確定要{MODES.find(([k]) => k === mode)[1]}嗎？</h2>
+                    <button className="icon-btn" onClick={() => !busy && setConfirmOpen(false)} aria-label="關閉">✕</button>
+                  </div>
+
+                  <p className="hint">送出後會同時更新這些項目：</p>
+
+                  <div className="tx-preview">
+                    {previewRows.map((r, i) => (
+                      <div className="tx-preview-row" key={i}>
+                        <div className="tx-preview-name">{r.label}</div>
+                        {r.isNew ? (
+                          <div className="tx-preview-note">{r.note}</div>
+                        ) : (
+                          <div className="tx-preview-calc">
+                            <span className="tx-before">{(r.isQty ? fmtQty : fmtNum)(r.before)}</span>
+                            <span className="tx-arrow" aria-hidden="true">→</span>
+                            <span className="tx-after">{(r.isQty ? fmtQty : fmtNum)(r.after)}</span>
+                            <span className="tx-unit">{r.unit}</span>
+                            <span className={'tx-delta ' + (r.delta >= 0 ? 'pos' : 'neg')}>
+                              {r.delta >= 0 ? '+' : '−'}{(r.isQty ? fmtQty : fmtNum)(Math.abs(r.delta))}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {error && <p className="hint danger-text">{error}</p>}
+
+                  <div className="modal-actions">
+                    <button className="btn ghost" onClick={() => setConfirmOpen(false)} disabled={busy}>再檢查一下</button>
+                    <button className="btn primary" onClick={submit} disabled={busy}>
+                      {busy ? '處理中…' : '確定送出'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
