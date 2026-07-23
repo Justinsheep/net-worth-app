@@ -144,6 +144,8 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
       : gross
     if (!source) invalid = '請選擇扣款帳戶'
     else if (gross <= 0) invalid = '請填買入金額'
+    else if (gross > Number(source.quantity || 0) + 0.00000001)
+      invalid = `餘額不足：${source.name} 只有 ${fmtNum(source.quantity)} ${source.currency}`
     else if (!symbol.trim()) invalid = '請填代號'
     else if (num(qty) <= 0) invalid = '請填數量'
     if (!invalid) {
@@ -191,6 +193,8 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
     if (!source) invalid = '請選擇轉出帳戶'
     else if (!dest) invalid = '請選擇轉入帳戶'
     else if (num(amount) <= 0) invalid = '請填轉出金額'
+    else if (out > Number(source.quantity || 0) + 0.00000001)
+      invalid = `餘額不足：${source.name} 只有 ${fmtNum(source.quantity)} ${source.currency}`
     else if (!sameCurrency && num(amount2) <= 0) invalid = '請填轉入金額'
     if (!invalid) {
       summary = (
@@ -276,7 +280,10 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
               <>
                 <AccountSelect label="從哪個帳戶扣款" accounts={accounts} value={sourceId} onChange={setSourceId} />
                 <div className="field-row">
-                  <AmountField label="買入金額" currency={source?.currency} value={amount} onChange={setAmount} />
+                  <AmountField
+                    label="買入金額" currency={source?.currency} value={amount} onChange={setAmount}
+                    hint={source ? `可用 ${fmtNum(source.quantity)} ${source.currency}` : ''}
+                  />
                   <AmountField label="手續費（選填）" currency={source?.currency} value={fee} onChange={setFee} />
                 </div>
 
@@ -361,7 +368,10 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
               <>
                 <AccountSelect label="從" accounts={accounts} value={sourceId} onChange={setSourceId} excludeId={destId} />
                 <div className="field-row">
-                  <AmountField label="轉出金額" currency={source?.currency} value={amount} onChange={setAmount} />
+                  <AmountField
+                    label="轉出金額" currency={source?.currency} value={amount} onChange={setAmount}
+                    hint={source ? `可用 ${fmtNum(source.quantity)} ${source.currency}` : ''}
+                  />
                   <AmountField label="手續費（選填）" currency={source?.currency} value={fee} onChange={setFee} />
                 </div>
                 <AccountSelect label="到" accounts={accounts} value={destId} onChange={setDestId} excludeId={sourceId} />
@@ -375,7 +385,9 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
             )}
 
             {summary && <div className="tx-summary">{summary}</div>}
-            {invalid && <p className="hint tx-invalid">{invalid}</p>}
+            {invalid && (
+              <p className={'hint ' + (/餘額不足|最多只能賣/.test(invalid) ? 'danger-text' : 'tx-invalid')}>{invalid}</p>
+            )}
             {error && <p className="hint danger-text">{error}</p>}
 
             <div className="modal-actions">
