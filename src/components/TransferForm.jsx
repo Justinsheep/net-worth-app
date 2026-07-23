@@ -23,10 +23,12 @@ const MODES = [
 ]
 
 // 金額欄位：點一下跳出計算機（跟新增表單同一套操作）
+// 註：外層刻意用 div 而非 label——label 會把內部的點擊轉發給它包住的按鈕，
+// 導致按計算機的「確定」時又立刻重新開啟計算機，關不掉。
 function AmountField({ label, value, currency, onChange, hint }) {
   const [padOpen, setPadOpen] = useState(false)
   return (
-    <label className="field">
+    <div className="field">
       <span>{label}{currency ? `（${currency}）` : ''}</span>
       <button type="button" className="calc-trigger" onClick={() => setPadOpen(true)}>
         {value !== '' ? value : <span className="calc-trigger-placeholder">點一下輸入</span>}
@@ -35,7 +37,7 @@ function AmountField({ label, value, currency, onChange, hint }) {
       {padOpen && (
         <NumberPad title={label} value={value} onCommit={onChange} onClose={() => setPadOpen(false)} />
       )}
-    </label>
+    </div>
   )
 }
 
