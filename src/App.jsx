@@ -11,6 +11,7 @@ import TrendChart from './components/TrendChart'
 import HoldingForm from './components/HoldingForm'
 import HoldingsTable from './components/HoldingsTable'
 import HoldingDetailPage from './components/HoldingDetailPage'
+import CashDetailPage from './components/CashDetailPage'
 import ConfirmClearModal from './components/ConfirmClearModal'
 import DeletedPanel from './components/DeletedPanel'
 import SpotlightTour from './components/SpotlightTour'
@@ -56,7 +57,7 @@ export default function App() {
   const [symbolPrefs, setSymbolPrefs] = useState({})
   const [simpleMode, setSimpleMode] = useState(false)
   const [detailKey, setDetailKey] = useState(null)
-  const [catOpen, setCatOpen] = useState({})
+  const [openCat, setOpenCat] = useState(null)
   const [changePct, setChangePct] = useState({})
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
@@ -117,7 +118,6 @@ export default function App() {
     setSimpleMode(next)
     store.setSetting('simpleMode', next)
   }
-  const toggleCatOpen = (key) => setCatOpen((o) => ({ ...o, [key]: o[key] !== true }))
   function finishOnboarding() {
     setShowOnboarding(false)
     store.setSetting('onboarded', true)
@@ -391,7 +391,18 @@ export default function App() {
         )}
 
         {tab === 'holdings' && (
-          detailKey ? (
+          detailKey?.kind === 'cash' ? (
+            <CashDetailPage
+              holding={holdings.find((h) => h.id === detailKey.id)}
+              fx={fx} fxRates={fxRates}
+              onBack={() => setDetailKey(null)}
+              onAdjust={(delta) => store.adjustHolding(detailKey.id, delta, { mode: 'delta' })}
+              onSetBalance={(v) => store.adjustHolding(detailKey.id, v, { mode: 'set' })}
+              onEditMeta={() => openEdit(holdings.find((h) => h.id === detailKey.id))}
+              onDeleteHolding={() => remove(holdings.find((h) => h.id === detailKey.id))}
+              onChangeIcon={(icon) => store.updateHolding(detailKey.id, { icon: icon || undefined })}
+            />
+          ) : detailKey ? (
             <HoldingDetailPage
               groupKey={detailKey} holdings={holdings} fx={fx} prices={prices} fxRates={fxRates}
               changePct={changePct} simpleMode={simpleMode}
@@ -399,14 +410,14 @@ export default function App() {
               onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onChangeIcon={changeGroupIcon}
             />
           ) : (
-            <section className={'panel page-fade slide-' + (cameBackFromDetail ? 'back' : slideDir)} data-tour="holdings-panel">
-              <h3 className="panel-title">持倉明細</h3>
+            <section className={'panel ledger page-fade slide-' + (cameBackFromDetail ? 'back' : slideDir)} data-tour="holdings-panel">
+              {!openCat && <h3 className="panel-title">持倉明細</h3>}
               {holdings.length === 0 ? (
                 <div className="empty">
                   還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
                 </div>
               ) : (
-                <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} catOpen={catOpen} onToggleCat={toggleCatOpen} onEdit={openEdit} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onOpenDetail={setDetailKey} />
+                <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} openCat={openCat} onOpenCat={setOpenCat} onCloseCat={() => setOpenCat(null)} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onOpenDetail={setDetailKey} />
               )}
             </section>
           )

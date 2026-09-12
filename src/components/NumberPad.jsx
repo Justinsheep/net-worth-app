@@ -10,7 +10,7 @@ const ROWS = [
 const KEY_MAP = { '÷': '/', '×': '*', '−': '-' }
 const fmtNum = (n) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
 
-export default function NumberPad({ title, value, onCommit, onClose }) {
+export default function NumberPad({ title, value, onCommit, onClose, allowNegative = false }) {
   const [expr, setExpr] = useState(value != null && value !== '' ? String(value) : '')
 
   const tap = (k) => {
@@ -22,8 +22,9 @@ export default function NumberPad({ title, value, onCommit, onClose }) {
   const hasOp = /[+\-*/]/.test(expr.replace(/^-/, ''))
   const result = evalExpr(expr)
   const preview = hasOp && result != null ? result : null
-  // 這個鍵盤只用在金額／數量欄位，沒有合理的負值場景，負數結果一律擋掉
-  const valid = result != null && result >= 0
+  // 這個鍵盤預設只用在金額／數量欄位，沒有合理的負值場景，負數結果一律擋掉；
+  // 增減金額這種「可能是減少」的場景才由呼叫端打開 allowNegative
+  const valid = result != null && (allowNegative || result >= 0)
 
   function commit() {
     if (valid) { onCommit(String(result)); onClose() }

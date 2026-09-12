@@ -123,6 +123,21 @@ export const store = {
     })
   },
 
+  // 調整現金類項目的餘額，並在 history 留一筆紀錄（帳本的「變動紀錄」用）。
+  // mode 'delta'：value 是增減的量（可正可負）；mode 'set'：value 是改完後的餘額本身。
+  async adjustHolding(id, value, { mode = 'delta', note } = {}) {
+    const now = Date.now()
+    await db.transaction('rw', db.holdings, async () => {
+      const h = await db.holdings.get(id)
+      if (!h) throw new Error('找不到這筆資料')
+      const before = Number(h.quantity || 0)
+      const after = mode === 'set' ? Number(value || 0) : before + Number(value || 0)
+      const entry = { id: uid(), type: mode, before, after, delta: after - before, note: note || '', at: now }
+      const history = [...(h.history || []), entry]
+      await db.holdings.update(id, { quantity: after, history, updatedAt: now })
+    })
+  },
+
   // ---- 設定（例如 USD/TWD 匯率）----
   async getSetting(key, fallback) {
     const r = await db.settings.get(key)
