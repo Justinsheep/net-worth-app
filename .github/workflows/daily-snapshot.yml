@@ -1,0 +1,27 @@
+name: Daily Net Worth Snapshot
+
+# 每天固定時間觸發 Supabase 的 daily-snapshot Edge Function，
+# 幫所有有登入同步的帳號各記一筆當天的淨資產快照——不用打開網頁也會記錄。
+# 需要在 repo 的 Settings → Secrets and variables → Actions 設定一個
+# 叫 CRON_SECRET 的 secret，值要跟 Supabase Edge Function 的 CRON_SECRET 一致。
+
+on:
+  schedule:
+    - cron: '0 16 * * *' # UTC 16:00 = 台灣時間隔天 00:00
+  workflow_dispatch: {}
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger daily-snapshot Edge Function
+        run: |
+          code=$(curl -s -o response.json -w "%{http_code}" -X POST \
+            "https://fchrqykvedemzxxkrrec.supabase.co/functions/v1/daily-snapshot" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $code"
+          cat response.json
+          if [ "$code" != "200" ]; then
+            echo "daily-snapshot failed"
+            exit 1
+          fi
