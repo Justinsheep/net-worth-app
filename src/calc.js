@@ -157,26 +157,6 @@ export function summarizePnl(holdings, fx, prices) {
   return { costTwd, valueTwd, pnlTwd, roi: costTwd ? pnlTwd / costTwd : null, hasAny: costTwd > 0 }
 }
 
-// 同一檔（多筆買入）的彙總
-export function symbolAgg(lots, fx, prices) {
-  let qty = 0
-  let valueTwd = 0
-  let costTwd = 0
-  let pnlTwd = 0
-  let anyCost = false
-  for (const h of lots) {
-    qty += Number(h.quantity || 0)
-    valueTwd += holdingValueTwd(h, fx, prices)
-    if (hasCost(h)) {
-      anyCost = true
-      costTwd += lotCostTwd(h, fx)
-      pnlTwd += lotPnlTwd(h, fx, prices)
-    }
-  }
-  const roi = anyCost && costTwd ? pnlTwd / costTwd : null
-  return { qty, valueTwd, costTwd, pnlTwd: anyCost ? pnlTwd : null, roi, anyCost }
-}
-
 // ---------- 格式化 ----------
 export const fmtTwd = (n) => 'NT$ ' + Math.round(Number(n || 0)).toLocaleString('en-US')
 export const fmtNum = (n) =>

@@ -3,7 +3,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 const STEPS = [
   { tab: 'overview', selector: '[data-tour="hero"]', title: '這裡看淨資產', desc: '總覽頁一打開就看到淨資產、資產配置，重點一眼掌握。' },
   { tab: 'overview', selector: '[data-tour="fab"]', title: '新增資產', desc: '股票、加密貨幣、現金、銀行、負債，都從這顆「＋」開始新增。', round: true },
-  { tab: 'holdings', selector: '[data-tour="holdings-panel"]', title: '細項管理', desc: '每個分類可以收合，點進去看交易明細，還能直接加碼或編輯。' },
+  { tab: 'holdings', selector: '[data-tour="holdings-panel"]', title: '細項管理', desc: '每個分類可以收合，點進去看變動紀錄，還能直接加碼或編輯。' },
   { tab: 'trend', selector: '[data-tour="trend-panel"]', title: '資產走勢', desc: '每天自動記一筆，慢慢就能看到資產怎麼成長。' },
   { tab: 'settings', selector: '[data-tour="simple-toggle"]', title: '簡易版與同步', desc: '只想單純記帳可以切成簡易版；登入 Google 還能跨裝置同步。' },
 ]

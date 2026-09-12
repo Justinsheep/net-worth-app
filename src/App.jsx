@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
 import { store } from './store'
-import { summarize, summarizePnl, todayChangeRatio, fmtTwd, fmtPct, fmtSignedTwd } from './calc'
+import { summarize, summarizePnl, todayChangeRatio, holdingIsCashLike, fmtTwd, fmtPct, fmtSignedTwd } from './calc'
 import { loadPrices } from './prices'
 import { supabase, supabaseEnabled } from './supabase'
 import { syncNow, wipeCloud } from './sync'
@@ -241,6 +241,8 @@ export default function App() {
   }
   async function save(rec) {
     if (editing) await store.updateHolding(editing.id, rec)
+    // 新增股票／加密貨幣／基金：同代號併入既有那筆，不再另開一筆
+    else if (rec.symbol && !holdingIsCashLike(rec)) await store.addOrMergeSymbolHolding(rec)
     else await store.addHolding(rec)
     // 記憶：這個代號這次用了什麼成本幣別，下次同一代號自動帶上
     if (rec.symbol && ['tw_stock', 'us_stock', 'crypto', 'fund'].includes(rec.category)) {
@@ -323,6 +325,12 @@ export default function App() {
   // 底部選單與＋只在四個主分頁出現，進到詳細頁或往下滑時收起
   const chromeHidden = navHidden || (tab === 'holdings' && !!detailKey)
 
+  // 現金 / 股票 / 加密貨幣 / 基金：單一項目的詳細頁共用同一個元件，這裡先找出是哪一筆
+  const singleDetailHolding =
+    detailKey?.kind === 'cash' ? holdings.find((h) => h.id === detailKey.id)
+    : detailKey?.kind === 'symbol' ? holdings.find((h) => h.category === detailKey.category && String(h.symbol || '').toUpperCase() === detailKey.symbol)
+    : null
+
   return (
     <div className="app">
       <header className="topbar">
@@ -391,23 +399,22 @@ export default function App() {
         )}
 
         {tab === 'holdings' && (
-          detailKey?.kind === 'cash' ? (
+          detailKey?.kind === 'cash' || detailKey?.kind === 'symbol' ? (
             <CashDetailPage
-              holding={holdings.find((h) => h.id === detailKey.id)}
-              fx={fx} fxRates={fxRates}
+              holding={singleDetailHolding}
+              fx={fx} fxRates={fxRates} prices={prices} changePct={changePct} simpleMode={simpleMode}
               onBack={() => setDetailKey(null)}
-              onAdjust={(delta) => store.adjustHolding(detailKey.id, delta, { mode: 'delta' })}
-              onSetBalance={(v) => store.adjustHolding(detailKey.id, v, { mode: 'set' })}
-              onEditMeta={() => openEdit(holdings.find((h) => h.id === detailKey.id))}
-              onDeleteHolding={() => remove(holdings.find((h) => h.id === detailKey.id))}
-              onChangeIcon={(icon) => store.updateHolding(detailKey.id, { icon: icon || undefined })}
+              onAdjust={(delta) => singleDetailHolding && store.adjustHolding(singleDetailHolding.id, delta, { mode: 'delta' })}
+              onSetBalance={(v) => singleDetailHolding && store.adjustHolding(singleDetailHolding.id, v, { mode: 'set' })}
+              onEditMeta={() => singleDetailHolding && openEdit(singleDetailHolding)}
+              onDeleteHolding={() => singleDetailHolding && remove(singleDetailHolding)}
+              onChangeIcon={(icon) => singleDetailHolding && store.updateHolding(singleDetailHolding.id, { icon: icon || undefined })}
             />
           ) : detailKey ? (
             <HoldingDetailPage
-              groupKey={detailKey} holdings={holdings} fx={fx} prices={prices} fxRates={fxRates}
-              changePct={changePct} simpleMode={simpleMode}
+              groupKey={detailKey} holdings={holdings} fx={fx} fxRates={fxRates}
               onBack={() => setDetailKey(null)} onEdit={openEdit} onDelete={detailDelete}
-              onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onChangeIcon={changeGroupIcon}
+              onAddMoreBucket={openAddMoreBucket} onChangeIcon={changeGroupIcon}
             />
           ) : (
             <section className={'panel ledger page-fade slide-' + (cameBackFromDetail ? 'back' : slideDir)} data-tour="holdings-panel">
