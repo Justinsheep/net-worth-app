@@ -26,7 +26,9 @@ function CalcInput({ value, onCommit, placeholder }) {
 
   function commit() {
     const r = evalExpr(raw)
-    if (r != null) { setRaw(String(r)); onCommit(String(r)) }
+    // 現價欄位沒有合理的負值場景，負數結果不採用，回復成原本的值
+    if (r != null && r >= 0) { setRaw(String(r)); onCommit(String(r)) }
+    else setRaw(initRaw(value))
     setFocused(false)
   }
 
@@ -202,9 +204,9 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
       symbol: form.symbol.trim(),
       bankName: isBank ? form.bankName.trim() : undefined,
       currency: form.currency,
-      quantity: Number(form.quantity) || 0,
-      price: !priced ? 1 : Number(form.price) || 0,
-      totalCost: skipCost ? undefined : (Number(form.totalCost) || undefined),
+      quantity: Math.max(0, Number(form.quantity) || 0),
+      price: !priced ? 1 : Math.max(0, Number(form.price) || 0),
+      totalCost: skipCost ? undefined : (Math.max(0, Number(form.totalCost) || 0) || undefined),
       buyDate: skipCost ? undefined : (form.buyDate || undefined),
       icon: form.icon || undefined,
     })

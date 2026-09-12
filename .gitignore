@@ -6,3 +6,6 @@ dist
 # 報價與代號清單由 GitHub Actions 在部署時自動產生，不需要 commit
 public/prices.json
 public/symbols.json
+
+# Supabase CLI 本機暫存狀態，不該進版控
+supabase/.temp/

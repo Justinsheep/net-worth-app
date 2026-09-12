@@ -105,7 +105,7 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
 
   const num = (v) => {
     const n = Number(v)
-    return Number.isFinite(n) ? n : 0
+    return Number.isFinite(n) ? Math.max(0, n) : 0
   }
 
   // 買入時查一下現價，方便你確認股數／金額有沒有填錯

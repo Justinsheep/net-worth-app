@@ -22,9 +22,11 @@ export default function NumberPad({ title, value, onCommit, onClose }) {
   const hasOp = /[+\-*/]/.test(expr.replace(/^-/, ''))
   const result = evalExpr(expr)
   const preview = hasOp && result != null ? result : null
+  // 這個鍵盤只用在金額／數量欄位，沒有合理的負值場景，負數結果一律擋掉
+  const valid = result != null && result >= 0
 
   function commit() {
-    if (result != null) { onCommit(String(result)); onClose() }
+    if (valid) { onCommit(String(result)); onClose() }
   }
 
   return (
@@ -54,7 +56,7 @@ export default function NumberPad({ title, value, onCommit, onClose }) {
 
         <div className="modal-actions">
           <button className="btn ghost" onClick={onClose}>取消</button>
-          <button className="btn primary" onClick={commit} disabled={result == null}>確定</button>
+          <button className="btn primary" onClick={commit} disabled={!valid}>確定</button>
         </div>
       </div>
     </div>
