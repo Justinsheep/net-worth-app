@@ -11,18 +11,21 @@ import IconPicker from './IconPicker'
 const fmtDateTime = (ms) =>
   new Date(ms).toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 
-// 一筆變動紀錄：沿用交易確認視窗同一套「改前 → 改後」樣式
-function HistoryRow({ entry, unit }) {
+// 一筆變動紀錄：沿用交易確認視窗同一套「改前 → 改後」樣式。
+// 股票/加密貨幣的數量用 fmtQty（到小數點後 8 位，小額加密貨幣才不會被四捨五入成 0）；
+// 現金/外幣的金額才用 fmtNum（到小數點後 2 位，符合一般貨幣的顯示習慣）。
+function HistoryRow({ entry, unit, qty }) {
+  const fmt = qty ? fmtQty : fmtNum
   return (
     <div className="tx-preview-row history-row">
       <div className="tx-preview-name">{fmtDateTime(entry.at)}</div>
       <div className="tx-preview-calc">
-        <span className="tx-before">{fmtNum(entry.before)}</span>
+        <span className="tx-before">{fmt(entry.before)}</span>
         <span className="tx-arrow" aria-hidden="true">→</span>
-        <span className="tx-after">{fmtNum(entry.after)}</span>
+        <span className="tx-after">{fmt(entry.after)}</span>
         <span className="tx-unit">{unit}</span>
         <span className={'tx-delta ' + (entry.delta >= 0 ? 'pos' : 'neg')}>
-          {entry.delta >= 0 ? '+' : '−'}{fmtNum(Math.abs(entry.delta))}
+          {entry.delta >= 0 ? '+' : '−'}{fmt(Math.abs(entry.delta))}
         </span>
       </div>
     </div>
@@ -161,7 +164,7 @@ export default function CashDetailPage({
         {history.length === 0 ? (
           <div className="empty">還沒有任何變動紀錄。<br />用上面的按鈕記一筆，或用「編輯」直接改成本均價。</div>
         ) : (
-          history.map((entry) => <HistoryRow key={entry.id} entry={entry} unit={unit} />)
+          history.map((entry) => <HistoryRow key={entry.id} entry={entry} unit={unit} qty={priced} />)
         )}
       </section>
 
