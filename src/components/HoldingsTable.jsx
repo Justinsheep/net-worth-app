@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { CATEGORIES, catLabel, catColor, holdingIsCashLike, holdingValueTwd } from '../calc'
-import { groupBySymbol, groupDebtBySubtype, groupByBank, DEBT_LABEL } from '../grouping'
+import { groupBySymbol, groupDebtBySubtype, groupByBank, applyCustomOrder, DEBT_LABEL } from '../grouping'
 import { fmtTwd, fmtNum, fmtQty, qtyUnit } from '../calc'
 import { IconChip } from '../icons'
 import SwipeRow from './SwipeRow'
+import ReorderList from './ReorderList'
 
 // 目錄頁要顯示「幾檔／幾組」，跟開頁後的分組邏輯保持一致（不是原始資料筆數）
 function groupItemCount(g) {
@@ -66,7 +67,7 @@ function GroupRow({ rowKey, openSwipe, onOpenSwipeChange, icon, title, sub, valu
   )
 }
 
-export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMode, openCat, onOpenCat, onCloseCat, onDelete, onDeleteMany, onAddMore, onAddMoreBucket, onOpenDetail }) {
+export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMode, openCat, onOpenCat, onCloseCat, onDelete, onDeleteMany, onAddMore, onAddMoreBucket, onOpenDetail, rowOrder, onReorderRows }) {
   const [openSwipe, setOpenSwipe] = useState(null)
   if (!holdings || holdings.length === 0) return null
 
@@ -84,17 +85,20 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
     const g = openGroup
     const subtotal = g.items.reduce((s, h) => s + holdingValueTwd(h, fx, prices, fxRates), 0)
 
-    let body
+    // rowsByKey：key → 這一列要 render 的內容；naturalKeys：預設順序（字母／固定分類序）。
+    // 使用者長按拖曳過的順序（rowOrder）優先，套用 applyCustomOrder 蓋過去。
+    let rowsByKey = {}
+    let naturalKeys
     let itemCount
     if (g.key === 'debt') {
       const subGroups = groupDebtBySubtype(g.items)
       itemCount = subGroups.length
-      body = subGroups.map(([subKey, items]) => {
+      naturalKeys = subGroups.map(([subKey]) => 'debt:' + subKey)
+      for (const [subKey, items] of subGroups) {
         const label = DEBT_LABEL[subKey] || '其他'
         const total = items.reduce((s, h) => s + holdingValueTwd(h, fx, prices, fxRates), 0)
-        return (
+        rowsByKey['debt:' + subKey] = (
           <GroupRow
-            key={'debt:' + subKey}
             rowKey={'debt:' + subKey}
             openSwipe={openSwipe}
             onOpenSwipeChange={setOpenSwipe}
@@ -108,15 +112,15 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
             onDeleteAll={() => onDeleteMany(items.map((h) => h.id), label)}
           />
         )
-      })
+      }
     } else if (g.key === 'bank') {
       const bankGroups = groupByBank(g.items)
       itemCount = bankGroups.length
-      body = bankGroups.map(([bankKey, items]) => {
+      naturalKeys = bankGroups.map(([bankKey]) => 'bank:' + bankKey)
+      for (const [bankKey, items] of bankGroups) {
         const total = items.reduce((s, h) => s + holdingValueTwd(h, fx, prices, fxRates), 0)
-        return (
+        rowsByKey['bank:' + bankKey] = (
           <GroupRow
-            key={'bank:' + bankKey}
             rowKey={'bank:' + bankKey}
             openSwipe={openSwipe}
             onOpenSwipeChange={setOpenSwipe}
@@ -130,45 +134,48 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
             onDeleteAll={() => onDeleteMany(items.map((h) => h.id), bankKey)}
           />
         )
-      })
+      }
     } else {
-      const cashItems = g.items.filter((h) => holdingIsCashLike(h))
+      // 現金型項目沒有代號可排序，預設用名稱固定排序，避免使用者一更動金額就跳到最上面
+      const cashItems = g.items
+        .filter((h) => holdingIsCashLike(h))
+        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'))
       const pricedItems = g.items.filter((h) => !holdingIsCashLike(h))
       const symGroups = groupBySymbol(pricedItems)
       itemCount = cashItems.length + symGroups.length
-      body = (
-        <>
-          {cashItems.map((h) => (
-            <PlainRow
-              key={h.id} h={h} fx={fx} prices={prices} fxRates={fxRates}
-              openSwipe={openSwipe} onOpenSwipeChange={setOpenSwipe}
-              onOpen={(item) => onOpenDetail({ kind: 'cash', id: item.id })}
-              onDelete={onDelete}
-            />
-          ))}
-          {symGroups.map(([symKey, lots]) => {
-            const total = lots.reduce((s, h) => s + holdingValueTwd(h, fx, prices), 0)
-            const qty = lots.reduce((s, h) => s + Number(h.quantity || 0), 0)
-            return (
-              <GroupRow
-                key={g.key + ':' + symKey}
-                rowKey={g.key + ':' + symKey}
-                openSwipe={openSwipe}
-                onOpenSwipeChange={setOpenSwipe}
-                icon={<IconChip holding={lots[0]} color={catColor(lots[0].category)} />}
-                title={lots[0].name}
-                sub={`${fmtQty(qty)} ${qtyUnit(g.key)}`}
-                valueTwd={total}
-                deleteLabel={lots[0].name}
-                onOpen={() => onOpenDetail({ kind: 'symbol', category: g.key, symbol: symKey, label: lots[0].name })}
-                onAddMore={() => onAddMore(lots[0])}
-                onDeleteAll={() => onDeleteMany(lots.map((h) => h.id), lots[0].name)}
-              />
-            )
-          })}
-        </>
-      )
+      naturalKeys = [...cashItems.map((h) => h.id), ...symGroups.map(([symKey]) => g.key + ':' + symKey)]
+      for (const h of cashItems) {
+        rowsByKey[h.id] = (
+          <PlainRow
+            h={h} fx={fx} prices={prices} fxRates={fxRates}
+            openSwipe={openSwipe} onOpenSwipeChange={setOpenSwipe}
+            onOpen={(item) => onOpenDetail({ kind: 'cash', id: item.id })}
+            onDelete={onDelete}
+          />
+        )
+      }
+      for (const [symKey, lots] of symGroups) {
+        const total = lots.reduce((s, h) => s + holdingValueTwd(h, fx, prices), 0)
+        const qty = lots.reduce((s, h) => s + Number(h.quantity || 0), 0)
+        rowsByKey[g.key + ':' + symKey] = (
+          <GroupRow
+            rowKey={g.key + ':' + symKey}
+            openSwipe={openSwipe}
+            onOpenSwipeChange={setOpenSwipe}
+            icon={<IconChip holding={lots[0]} color={catColor(lots[0].category)} />}
+            title={lots[0].name}
+            sub={`${fmtQty(qty)} ${qtyUnit(g.key)}`}
+            valueTwd={total}
+            deleteLabel={lots[0].name}
+            onOpen={() => onOpenDetail({ kind: 'symbol', category: g.key, symbol: symKey, label: lots[0].name })}
+            onAddMore={() => onAddMore(lots[0])}
+            onDeleteAll={() => onDeleteMany(lots.map((h) => h.id), lots[0].name)}
+          />
+        )
+      }
     }
+
+    const orderedKeys = applyCustomOrder(naturalKeys, rowOrder)
 
     return (
       <div key={openCat} className="table book-page-in">
@@ -187,7 +194,12 @@ export default function HoldingsTable({ holdings, fx, prices, fxRates, simpleMod
             aria-label={`刪除「${catLabel(g.key)}」全部`}
           >🗑</button>
         </div>
-        <div className="group-body">{body}</div>
+        <ReorderList
+          className="group-body"
+          order={orderedKeys}
+          renderItem={(key) => rowsByKey[key]}
+          onReorder={onReorderRows}
+        />
       </div>
     )
   }

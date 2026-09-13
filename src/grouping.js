@@ -28,6 +28,15 @@ export function groupDebtBySubtype(items) {
   return [...map.entries()].sort((a, b) => DEBT_ORDER.indexOf(a[0]) - DEBT_ORDER.indexOf(b[0]))
 }
 
+// 套用使用者長按拖曳存下來的自訂順序：存過的排前面（照存的順序），
+// 新出現、還沒排過的項目接在後面；已經不存在的 key 自然被濾掉
+export function applyCustomOrder(naturalKeys, saved) {
+  if (!saved || !saved.length) return naturalKeys
+  const kept = saved.filter((k) => naturalKeys.includes(k))
+  const extra = naturalKeys.filter((k) => !kept.includes(k))
+  return [...kept, ...extra]
+}
+
 // 依銀行名稱分組
 export function groupByBank(items) {
   const map = new Map()

@@ -59,21 +59,19 @@ body {
 
 .tab-content { display: flex; flex-direction: column; gap: 14px; perspective: 1400px; }
 
-/* ---------- 持倉明細：像帳本翻頁。目錄頁／分類頁只會有一份在畫面上（單一元素進場），
-   不再疊兩份內容，不會有新舊列數不一樣互相穿插的問題。書背固定在左邊，
-   不管換到哪一頁，都是新頁面從左邊那條軸翻進來 ---------- */
+/* ---------- 持倉明細：目錄頁／分類頁只會有一份在畫面上（單一元素進場），
+   不再疊兩份內容，不會有新舊列數不一樣互相穿插的問題。
+   不管換到哪一頁，都是新頁面從左邊淡入 ---------- */
 .book-page-in {
-  backface-visibility: hidden;
-  transform-origin: left center;
   box-shadow: var(--shadow-sm);
-  animation-name: pageFlipIn;
-  animation-duration: 1.05s;
-  animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1);
+  animation-name: pageFadeIn;
+  animation-duration: 0.32s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   animation-fill-mode: both;
 }
-@keyframes pageFlipIn {
-  0% { transform: perspective(1100px) rotateY(-92deg); }
-  100% { transform: perspective(1100px) rotateY(0deg); }
+@keyframes pageFadeIn {
+  0% { opacity: 0; transform: translateX(-28px); }
+  100% { opacity: 1; transform: translateX(0); }
 }
 @media (prefers-reduced-motion: reduce) {
   .book-page-in { animation: none; }
@@ -171,9 +169,17 @@ body {
 }
 .hero::after { content: ''; position: absolute; top: -60%; right: -15%; width: 55%; height: 180%; background: radial-gradient(closest-side, rgba(224, 98, 58, 0.12), transparent); pointer-events: none; }
 .hero > * { position: relative; }
+.hero-label-row { display: flex; align-items: center; gap: 6px; }
 .hero-label { font-family: var(--font-mono); font-size: 12px; color: var(--accent-ink); letter-spacing: 0.6px; text-transform: uppercase; }
 .hero-label::before { content: '● '; color: var(--accent); font-size: 9px; animation: pulse 1.8s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.3; } }
+.hero-eye-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%; border: none;
+  background: transparent; color: var(--faint);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.hero-eye-btn:hover, .hero-eye-btn:active { background: rgba(255, 255, 255, 0.1); color: var(--accent-ink); }
 .hero-value { font-family: var(--font-serif); font-weight: 600; font-size: 46px; letter-spacing: -0.5px; margin-top: 10px; color: var(--ink); font-variant-numeric: tabular-nums; }
 .hero-value.neg { color: var(--neg); }
 .hero-rule { height: 1px; background: linear-gradient(90deg, var(--line-strong), transparent); margin: 20px 0 16px; }
@@ -252,6 +258,16 @@ body {
 
 .symgroup { border-bottom: 1px solid var(--line); }
 .symgroup:last-child { border-bottom: none; }
+/* 長按拖曳排序：每一列包一層 .reorder-row，分隔線改在這層畫（.symgroup 本身不再是
+   清單裡真正相鄰的兄弟節點，:last-child 判斷要往外層移一層才對） */
+.reorder-row { touch-action: pan-y; }
+.reorder-row .symgroup { border-bottom: none; }
+.reorder-row:not(:last-child) .symgroup { border-bottom: 1px solid var(--line); }
+.reorder-row.dragging { position: relative; z-index: 5; }
+.reorder-row.dragging .symgroup {
+  background: var(--card); border-radius: 10px;
+  box-shadow: 0 10px 24px -8px rgba(20, 14, 8, 0.35);
+}
 .agg-front {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 13px 2px; cursor: pointer; font-family: inherit;

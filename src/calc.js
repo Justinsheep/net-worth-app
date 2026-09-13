@@ -1,3 +1,5 @@
+import { getHideAmounts } from './privacy'
+
 // 資產分類定義。category 用字串，未來加「黃金 / 基金 / 美債」只要在這裡多一列。
 export const CATEGORIES = [
   { key: 'tw_stock', label: '台股', defaultCurrency: 'TWD', color: '#2F80B4' },
@@ -164,7 +166,8 @@ export function summarizePnl(holdings, fx, prices) {
 }
 
 // ---------- 格式化 ----------
-export const fmtTwd = (n) => 'NT$ ' + Math.round(Number(n || 0)).toLocaleString('en-US')
+export const fmtTwd = (n) =>
+  getHideAmounts() ? 'NT$ ••••••' : 'NT$ ' + Math.round(Number(n || 0)).toLocaleString('en-US')
 export const fmtNum = (n) =>
   Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
 // 持股數量（股票股數／加密貨幣顆數）不受上面兩位小數限制，小額加密貨幣才不會顯示成 0
@@ -179,5 +182,8 @@ export const qtyUnit = (category) => {
 }
 export const fmtPct = (r) =>
   r == null ? '—' : (r >= 0 ? '+' : '-') + Math.abs(r * 100).toFixed(1) + '%'
-export const fmtSignedTwd = (n) =>
-  n == null ? '—' : (n >= 0 ? '+' : '-') + 'NT$' + Math.abs(Math.round(n)).toLocaleString('en-US')
+export const fmtSignedTwd = (n) => {
+  if (n == null) return '—'
+  if (getHideAmounts()) return (n >= 0 ? '+' : '-') + 'NT$••••'
+  return (n >= 0 ? '+' : '-') + 'NT$' + Math.abs(Math.round(n)).toLocaleString('en-US')
+}

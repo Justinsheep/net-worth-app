@@ -281,6 +281,15 @@ export const store = {
     await db.settings.put({ key, value })
   },
 
+  // ---- 細項頁的手動排序（使用者長按拖曳調整過的順序，依分類分開存）----
+  async getRowOrder(catKey) {
+    const r = await db.settings.get('rowOrder:' + catKey)
+    return r ? r.value : null
+  },
+  async setRowOrder(catKey, orderedKeys) {
+    await db.settings.put({ key: 'rowOrder:' + catKey, value: orderedKeys })
+  },
+
   // ---- 每日淨值快照（第 3 階段會用到）----
   async listSnapshots() {
     return db.snapshots.orderBy('date').toArray()

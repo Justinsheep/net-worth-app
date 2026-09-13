@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
 import { store } from './store'
@@ -6,6 +6,7 @@ import { summarize, summarizePnl, todayChangeRatio, holdingIsCashLike, fmtTwd, f
 import { loadPrices } from './prices'
 import { supabase, supabaseEnabled } from './supabase'
 import { syncNow, wipeCloud } from './sync'
+import { getHideAmounts, subscribeHideAmounts, toggleHideAmounts } from './privacy'
 import AllocationChart from './components/AllocationChart'
 import TrendChart from './components/TrendChart'
 import HoldingForm from './components/HoldingForm'
@@ -28,6 +29,17 @@ const TABS = [
   { key: 'trend', label: '走勢', icon: '⌁' },
   { key: 'settings', label: '設定', icon: '⚙' },
 ]
+
+// 隱藏金額用的小眼睛圖示，跟其餘手繪風格圖示一致（單色線條、currentColor）
+function EyeIcon({ off }) {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+      {off && <line x1="3.5" y1="20.5" x2="20.5" y2="3.5" />}
+    </svg>
+  )
+}
 
 export default function App() {
   const holdings = useLiveQuery(
@@ -59,6 +71,7 @@ export default function App() {
   const [simpleMode, setSimpleMode] = useState(false)
   const [detailKey, setDetailKey] = useState(null)
   const [openCat, setOpenCat] = useState(null)
+  const [rowOrders, setRowOrders] = useState({}) // 細項頁：使用者長按拖曳存下的列順序，依分類 key 分開存
   const [changePct, setChangePct] = useState({})
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
@@ -113,6 +126,18 @@ export default function App() {
     store.getSetting('simpleMode', false).then((v) => setSimpleMode(!!v))
     store.getSetting('onboarded', false).then((v) => setShowOnboarding(!v))
   }, [])
+
+  // 進到某個分類的細項頁時才去讀那個分類存過的自訂順序，還沒讀過才查（避免重複打 DB）
+  useEffect(() => {
+    if (!openCat || rowOrders[openCat] !== undefined) return
+    store.getRowOrder(openCat).then((v) => setRowOrders((prev) => ({ ...prev, [openCat]: v })))
+  }, [openCat])
+
+  function reorderRows(order) {
+    if (!openCat) return
+    setRowOrders((prev) => ({ ...prev, [openCat]: order }))
+    store.setRowOrder(openCat, order)
+  }
 
   function toggleSimpleMode() {
     const next = !simpleMode
@@ -207,6 +232,7 @@ export default function App() {
     store.setSetting('fxAuto', next)
   }
 
+  const hideAmounts = useSyncExternalStore(subscribeHideAmounts, getHideAmounts)
   const { totalAsset, totalDebt, netWorth, byCat } = summarize(holdings, fx, prices, fxRates)
   const pnl = summarizePnl(holdings, fx, prices)
   const todayChange = todayChangeRatio(holdings, fx, prices, fxRates, changePct)
@@ -345,7 +371,17 @@ export default function App() {
         {tab === 'overview' && (
           <div className={'page-fade slide-' + slideDir}>
             <section className="hero" data-tour="hero">
-              <div className="hero-label">淨資產</div>
+              <div className="hero-label-row">
+                <div className="hero-label">淨資產</div>
+                <button
+                  className="hero-eye-btn"
+                  onClick={toggleHideAmounts}
+                  title={hideAmounts ? '顯示金額' : '隱藏金額'}
+                  aria-label={hideAmounts ? '顯示金額' : '隱藏金額'}
+                >
+                  <EyeIcon off={hideAmounts} />
+                </button>
+              </div>
               <div className={'hero-value' + (netWorth < 0 ? ' neg' : '')}>{fmtTwd(netWorth)}</div>
               {!simpleMode && todayChange != null && (
                 <div className="change-row">
@@ -425,7 +461,7 @@ export default function App() {
                   還沒有任何資料。<br />按右下角「＋」加入你的第一筆持倉或負債。
                 </div>
               ) : (
-                <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} openCat={openCat} onOpenCat={setOpenCat} onCloseCat={() => setOpenCat(null)} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onOpenDetail={setDetailKey} />
+                <HoldingsTable holdings={holdings} fx={fx} prices={prices} fxRates={fxRates} simpleMode={simpleMode} openCat={openCat} onOpenCat={setOpenCat} onCloseCat={() => setOpenCat(null)} onDelete={remove} onDeleteMany={removeMany} onAddMore={openAddMore} onAddMoreBucket={openAddMoreBucket} onOpenDetail={setDetailKey} rowOrder={openCat ? rowOrders[openCat] : null} onReorderRows={reorderRows} />
               )}
             </section>
           )

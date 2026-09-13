@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { evalExpr } from '../calcExpr'
 
 const ROWS = [
@@ -29,6 +29,19 @@ export default function NumberPad({ title, value, onCommit, onClose, allowNegati
   function commit() {
     if (valid) { onCommit(String(result)); onClose() }
   }
+
+  // 除了點按鍵盤，也支援直接用實體鍵盤輸入數字／運算符號，不用每個數字都點螢幕
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (/^[0-9.+\-*/]$/.test(e.key)) { e.preventDefault(); tap(e.key); return }
+      if (e.key === 'Backspace') { e.preventDefault(); tap('⌫'); return }
+      if (e.key === 'Enter') { e.preventDefault(); commit(); return }
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
