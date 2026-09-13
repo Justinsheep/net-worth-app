@@ -16,6 +16,7 @@ import ConfirmClearModal from './components/ConfirmClearModal'
 import DeletedPanel from './components/DeletedPanel'
 import SpotlightTour from './components/SpotlightTour'
 import TransferForm from './components/TransferForm'
+import { version as APP_VERSION } from '../package.json'
 
 const TAB_ORDER = ['overview', 'holdings', 'trend', 'settings']
 
@@ -555,6 +556,7 @@ export default function App() {
               資料存在這台裝置的瀏覽器裡（IndexedDB）{session ? '，並與雲端同步。' : '。'}
               　<button className="link-btn" onClick={() => setShowOnboarding(true)}>重新看新手介紹</button>
             </p>
+            <p className="footer-note settings-footnote settings-version">v{APP_VERSION}</p>
           </div>
         )}
       </main>
