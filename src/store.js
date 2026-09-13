@@ -1,6 +1,9 @@
 import { db } from './db'
 import { holdingIsCashLike } from './calc'
 
+// 加密貨幣的成本欄位是「持倉均價」，併入時不能像其他分類那樣直接相加
+const isAvgPriceCategory = (category) => category === 'crypto'
+
 // 唯一的資料存取層。畫面一律透過 store.* 讀寫，不直接碰資料庫實作。
 // 未來要跨裝置同步時，複製一份 store 換成 Supabase 版本即可，介面不變。
 
@@ -26,12 +29,19 @@ async function upsertSymbolHolding(rec, now, note) {
     const beforeQty = Number(existing.quantity || 0)
     const addedQty = Number(rec.quantity || 0)
     const afterQty = beforeQty + addedQty
-    const beforeCost = Number(existing.totalCost || 0)
-    const addedCost = Number(rec.totalCost || 0)
+    let totalCost
+    if (isAvgPriceCategory(rec.category)) {
+      // 均價不能相加：這次有填新均價就用新的（使用者自己校正），沒填就維持原本的
+      totalCost = Number(rec.totalCost || 0) || Number(existing.totalCost || 0) || undefined
+    } else {
+      const beforeCost = Number(existing.totalCost || 0)
+      const addedCost = Number(rec.totalCost || 0)
+      totalCost = (beforeCost || addedCost) ? beforeCost + addedCost : undefined
+    }
     const entry = { id: uid(), type: 'delta', before: beforeQty, after: afterQty, delta: addedQty, note: note || '加碼', at: now }
     await db.holdings.update(existing.id, {
       quantity: afterQty,
-      totalCost: (beforeCost || addedCost) ? beforeCost + addedCost : undefined,
+      totalCost,
       price: rec.price || existing.price,
       icon: existing.icon || rec.icon,
       history: [...(existing.history || []), entry],
@@ -123,8 +133,8 @@ export const store = {
     })
   },
 
-  // 賣出：依買入日期先進先出扣減股數（成本同比例扣減，讓剩下部位的成本均價維持正確），
-  // 賣完的那一筆軟刪除；款項加進指定帳戶。
+  // 賣出：依買入日期先進先出扣減股數（總投入金額同比例扣減；加密貨幣的均價不隨賣出比例
+  // 變動，因為均價本來就跟賣掉多少無關），賣完的那一筆軟刪除；款項加進指定帳戶。
   async applySell({ lots, sellQty, destId, credit }) {
     const now = Date.now()
     await db.transaction('rw', db.holdings, async () => {
@@ -140,6 +150,9 @@ export const store = {
         const ratio = have ? left / have : 0
         if (left <= 0.00000001) {
           await db.holdings.update(lot.id, { quantity: 0, deleted: true, updatedAt: now })
+        } else if (isAvgPriceCategory(lot.category)) {
+          // 均價欄位跟賣掉多少無關（賣掉一半，剩下的每顆成本還是原本那個均價），只改數量
+          await db.holdings.update(lot.id, { quantity: left, updatedAt: now })
         } else {
           await db.holdings.update(lot.id, {
             quantity: left,
@@ -237,6 +250,26 @@ export const store = {
       }
     })
     return merged
+  },
+
+  // 一次性遷移：加密貨幣原本的 totalCost 存的是「總投入金額」，現在改成存「持倉均價」
+  // （calc.js 的 costPerUnit/lotCostTwd 已經改成這樣解讀）。把舊資料的總投入除以數量、
+  // 換算成均價寫回去——換算後總成本＝均價×數量＝原本的總投入，損益數字不會變動，
+  // 只是「成本均價」這個顯示欄位從「算出來的」變成「存起來的」。可以放心重複執行。
+  async convertCryptoCostToAvgPrice() {
+    const now = Date.now()
+    const changed = []
+    await db.transaction('rw', db.holdings, async () => {
+      const items = await db.holdings
+        .filter((h) => !h.deleted && h.category === 'crypto' && !holdingIsCashLike(h) && Number(h.totalCost) > 0 && Number(h.quantity) > 0)
+        .toArray()
+      for (const h of items) {
+        const avg = Number(h.totalCost) / Number(h.quantity)
+        await db.holdings.update(h.id, { totalCost: avg, updatedAt: now })
+        changed.push({ id: h.id, symbol: h.symbol, quantity: h.quantity, oldTotalCost: h.totalCost, newAvgPrice: avg })
+      }
+    })
+    return changed
   },
 
   // ---- 設定（例如 USD/TWD 匯率）----

@@ -78,10 +78,15 @@ export function holdingValueTwd(h, fx, prices, fxRates) {
 }
 
 // ---------- 成本 / 損益（統一用台幣比較）----------
+// 加密貨幣的 totalCost 欄位存的是「持倉均價」（每顆成本），不是總投入金額——
+// 因為加密貨幣常常小額多次買賣，「總投入 ÷ 數量」會隨每次調整數量跟著跑掉，
+// 不如讓使用者自己維護一個均價數字更直覺、更準。其他分類（股票/基金）維持總投入金額不變。
+const isAvgPriceCategory = (category) => category === 'crypto'
 export const lotCost = (h) => Number(h.totalCost || 0)
 export const hasCost = (h) =>
   !holdingIsCashLike(h) && !isStablecoin(h) && lotCost(h) > 0 && Number(h.quantity || 0) > 0
 export const costPerUnit = (h) => {
+  if (isAvgPriceCategory(h.category)) return lotCost(h)
   const q = Number(h.quantity || 0)
   return q ? lotCost(h) / q : 0
 }
@@ -90,7 +95,8 @@ export const costPerUnit = (h) => {
 export function lotCostTwd(h, fx) {
   if (!hasCost(h)) return 0
   const rate = h.currency === 'USD' ? Number(fx || 0) : 1
-  return lotCost(h) * rate
+  const totalNative = isAvgPriceCategory(h.category) ? lotCost(h) * Number(h.quantity || 0) : lotCost(h)
+  return totalNative * rate
 }
 
 // 單筆損益／報酬率（台幣基準）

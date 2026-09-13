@@ -192,7 +192,10 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
 
   const q = Number(form.quantity) || 0
   const tc = Number(form.totalCost) || 0
-  const perUnit = q && tc ? tc / q : null
+  // 加密貨幣的「成本」欄位填的直接就是持倉均價（每顆成本），其他分類填的是總投入金額
+  const isAvgCost = form.category === 'crypto'
+  const perUnit = isAvgCost ? (tc || null) : (q && tc ? tc / q : null)
+  const totalFromAvg = isAvgCost && q && tc ? tc * q : null
   const showManualPrice = priced && form.symbol && !priceIsLive // 抓不到價時才露出現價欄
 
   function submit() {
@@ -393,7 +396,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
                       <>
                         <div className="field-row">
                           <label className="field">
-                            <span>總投入成本</span>
+                            <span>{isAvgCost ? '持倉均價（每顆成本）' : '總投入成本'}</span>
                             <button type="button" className="calc-trigger" onClick={() => setCostPadOpen(true)}>
                               {form.totalCost !== '' ? form.totalCost : <span className="calc-trigger-placeholder">點一下輸入</span>}
                             </button>
@@ -410,8 +413,14 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
                           <span>買入日期</span>
                           <input type="date" value={form.buyDate} onChange={(e) => set('buyDate', e.target.value)} />
                         </label>
-                        {perUnit != null && (
-                          <p className="hint">成本單價 ≈ <b>{perUnit.toLocaleString('en-US', { maximumFractionDigits: 2 })} {form.currency}</b>（總投入 ÷ 數量）。市場報價固定是 {quoteCurrencyOf(form.category, form)}，換算自動處理。</p>
+                        {isAvgCost ? (
+                          totalFromAvg != null && (
+                            <p className="hint">總成本 ≈ <b>{totalFromAvg.toLocaleString('en-US', { maximumFractionDigits: 2 })} {form.currency}</b>（均價 × 數量）。之後不管加碼或賣出，均價都不會自動變動，要調整就直接改這欄。</p>
+                          )
+                        ) : (
+                          perUnit != null && (
+                            <p className="hint">成本單價 ≈ <b>{perUnit.toLocaleString('en-US', { maximumFractionDigits: 2 })} {form.currency}</b>（總投入 ÷ 數量）。市場報價固定是 {quoteCurrencyOf(form.category, form)}，換算自動處理。</p>
+                          )
                         )}
                       </>
                     )}
@@ -455,7 +464,7 @@ export default function HoldingForm({ editing, template, prices, symbolPrefs, si
       )}
       {costPadOpen && (
         <NumberPad
-          title="總投入成本"
+          title={isAvgCost ? '持倉均價（每顆成本）' : '總投入成本'}
           value={form.totalCost}
           onCommit={(v) => set('totalCost', v)}
           onClose={() => setCostPadOpen(false)}
