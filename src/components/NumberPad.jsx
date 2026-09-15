@@ -36,6 +36,7 @@ export default function NumberPad({ title, value, onCommit, onClose, allowNegati
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (/^[0-9.+\-*/]$/.test(e.key)) { e.preventDefault(); tap(e.key); return }
       if (e.key === 'Backspace') { e.preventDefault(); tap('⌫'); return }
+      if (e.key === 'Delete') { e.preventDefault(); clear(); return }
       if (e.key === 'Enter') { e.preventDefault(); commit(); return }
       if (e.key === 'Escape') { e.preventDefault(); onClose(); return }
     }

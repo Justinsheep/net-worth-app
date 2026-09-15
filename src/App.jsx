@@ -440,7 +440,7 @@ export default function App() {
             <CashDetailPage
               holding={singleDetailHolding}
               fx={fx} fxRates={fxRates} prices={prices} changePct={changePct} simpleMode={simpleMode}
-              onBack={() => setDetailKey(null)}
+              onBack={() => setDetailKey(detailKey?.backTo ?? null)}
               onAdjust={(delta) => singleDetailHolding && store.adjustHolding(singleDetailHolding.id, delta, { mode: 'delta' })}
               onSetBalance={(v) => singleDetailHolding && store.adjustHolding(singleDetailHolding.id, v, { mode: 'set' })}
               onEditMeta={() => singleDetailHolding && openEdit(singleDetailHolding)}
@@ -450,7 +450,9 @@ export default function App() {
           ) : detailKey ? (
             <HoldingDetailPage
               groupKey={detailKey} holdings={holdings} fx={fx} fxRates={fxRates}
-              onBack={() => setDetailKey(null)} onEdit={openEdit} onDelete={detailDelete}
+              onBack={() => setDetailKey(null)}
+              onOpenItem={(h) => setDetailKey({ kind: 'cash', id: h.id, backTo: detailKey })}
+              onEdit={openEdit} onDelete={detailDelete}
               onAddMoreBucket={openAddMoreBucket} onChangeIcon={changeGroupIcon}
             />
           ) : (

@@ -5,15 +5,16 @@ import { IconChip } from '../icons'
 import SwipeRow from './SwipeRow'
 import IconPicker from './IconPicker'
 
-// 變動紀錄裡的一列。往右滑露出「✎編輯」「🗑刪除」，平常畫面乾淨、金額靠右。
+// 變動紀錄裡的一列。點一下進去看這筆帳戶自己的餘額變動紀錄（跟現金/外幣同一套頁面）；
+// 往右滑露出「✎編輯」（改名稱/幣別）「🗑刪除」，平常畫面乾淨、金額靠右。
 // 只用在負債子分類／銀行分組——這兩種底下本來就會有好幾筆不同的東西（兩台車的車貸、
 // 好幾個帳戶），跟股票不一樣，不能合併成一筆。
-function TxnRow({ h, fx, fxRates, openSwipe, onOpenSwipeChange, onEdit, onDelete }) {
+function TxnRow({ h, fx, fxRates, openSwipe, onOpenSwipeChange, onOpenItem, onEdit, onDelete }) {
   const v = holdingValueTwd(h, fx, undefined, fxRates)
   return (
     <SwipeRow rowKey={h.id} openKey={openSwipe} onOpenChange={onOpenSwipeChange}
       actions={[{ icon: '✎', label: '編輯', onClick: () => onEdit(h) }, { icon: '🗑', label: '刪除', danger: true, onClick: () => onDelete(h) }]}
-      onTap={() => onEdit(h)} frontClassName="txn-front">
+      onTap={() => onOpenItem(h)} frontClassName="txn-front">
       <div className="row-main">
         <div className="row-sub">{h.name} · {fmtNum(h.quantity)} {h.currency}</div>
       </div>
@@ -26,7 +27,7 @@ function TxnRow({ h, fx, fxRates, openSwipe, onOpenSwipeChange, onEdit, onDelete
 
 // 負債子分類／銀行分組的詳細頁：底下可能有好幾筆不同的項目。
 // 股票／加密貨幣／基金／現金一檔（一個項目）只有一筆記錄，走 CashDetailPage。
-export default function HoldingDetailPage({ groupKey, holdings, fx, fxRates, onBack, onEdit, onDelete, onAddMoreBucket, onChangeIcon }) {
+export default function HoldingDetailPage({ groupKey, holdings, fx, fxRates, onBack, onOpenItem, onEdit, onDelete, onAddMoreBucket, onChangeIcon }) {
   const [openSwipe, setOpenSwipe] = useState(null)
   const [iconPickerOpen, setIconPickerOpen] = useState(false)
 
@@ -101,7 +102,7 @@ export default function HoldingDetailPage({ groupKey, holdings, fx, fxRates, onB
           </div>
         </div>
         {items.map((h) => (
-          <TxnRow key={h.id} h={h} fx={fx} fxRates={fxRates} openSwipe={openSwipe} onOpenSwipeChange={setOpenSwipe} onEdit={onEdit} onDelete={(one) => onDelete([one])} />
+          <TxnRow key={h.id} h={h} fx={fx} fxRates={fxRates} openSwipe={openSwipe} onOpenSwipeChange={setOpenSwipe} onOpenItem={onOpenItem} onEdit={onEdit} onDelete={(one) => onDelete([one])} />
         ))}
       </section>
     </div>

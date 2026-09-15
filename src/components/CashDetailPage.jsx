@@ -68,7 +68,7 @@ export default function CashDetailPage({
         <div className="detail-head-title">
           <span className="detail-head-name">{holding.name}</span>
           <span className="detail-head-sub">
-            {priced ? `${holding.symbol ? holding.symbol + '　' : ''}${catLabel(holding.category)}` : '現金 / 外幣'}
+            {priced ? `${holding.symbol ? holding.symbol + '　' : ''}${catLabel(holding.category)}` : catLabel(holding.category)}
           </span>
         </div>
         <button className="icon-btn" onClick={onEditMeta} aria-label="編輯">✎</button>
