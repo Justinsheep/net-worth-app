@@ -204,10 +204,12 @@ export const store = {
     })
   },
 
-  // 一次性遷移：把「同一檔分好幾筆買入」的舊資料合併成一筆，逐筆買入轉成 history 紀錄
-  // （數量、成本原封不動地保留下來，只是換個放法）。之後新增/加碼都會自動合併，
-  // 不會再變成好幾筆，這個只是把舊資料收乾淨，可以放心重複執行（沒有多筆的分類不會被動到）。
-  async mergeAllSymbolLots() {
+  // 同一檔（同分類＋同代號）出現一筆以上還沒刪除的持股，就合併成一筆：這通常是離線時在
+  // 兩台裝置分別新增同一檔（各自產生不同 id），登入同步後兩筆都被拉了下來造成重複。
+  // 數量相加、真實的變動紀錄（history）依時間排序合併（不是憑空生一筆假的），
+  // 加密貨幣的均價不能相加，留其中一筆填過的值。每次同步後都會跑一次，
+  // 沒有重複的代號不會被動到，可以放心重複執行。
+  async mergeDuplicateSymbolHoldings() {
     const now = Date.now()
     const merged = []
     await db.transaction('rw', db.holdings, async () => {
@@ -221,32 +223,20 @@ export const store = {
       }
       for (const [key, lots] of groups) {
         if (lots.length < 2) continue
-        const ordered = [...lots].sort((a, b) => String(a.buyDate || '').localeCompare(String(b.buyDate || '')))
-        let qty = 0
-        let cost = 0
-        let anyCost = false
-        const history = []
-        for (const lot of ordered) {
-          const before = qty
-          qty += Number(lot.quantity || 0)
-          if (lot.totalCost) { cost += Number(lot.totalCost); anyCost = true }
-          history.push({
-            id: uid(), type: 'delta', before, after: qty, delta: Number(lot.quantity || 0),
-            note: lot.buyDate ? `原始買入 ${lot.buyDate}` : '原始買入',
-            at: lot.buyDate ? new Date(lot.buyDate).getTime() : now,
-          })
+        const ordered = [...lots].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        const [keep, ...rest] = ordered
+        const qty = lots.reduce((s, h) => s + Number(h.quantity || 0), 0)
+        let totalCost
+        if (isAvgPriceCategory(keep.category)) {
+          totalCost = Number(keep.totalCost || 0) || Number(rest.find((h) => h.totalCost)?.totalCost || 0) || undefined
+        } else {
+          const sum = lots.reduce((s, h) => s + Number(h.totalCost || 0), 0)
+          totalCost = sum || undefined
         }
-        const keep = ordered[0]
-        await db.holdings.update(keep.id, {
-          quantity: qty,
-          totalCost: anyCost ? cost : undefined,
-          history: [...(keep.history || []), ...history],
-          updatedAt: now,
-        })
-        for (const lot of ordered.slice(1)) {
-          await db.holdings.update(lot.id, { deleted: true, updatedAt: now })
-        }
-        merged.push({ key, lots: lots.length, qty, cost: anyCost ? cost : null })
+        const history = lots.flatMap((h) => h.history || []).sort((a, b) => (a.at || 0) - (b.at || 0))
+        await db.holdings.update(keep.id, { quantity: qty, totalCost, history, updatedAt: now })
+        for (const h of rest) await db.holdings.update(h.id, { deleted: true, updatedAt: now })
+        merged.push({ key, count: lots.length })
       }
     })
     return merged

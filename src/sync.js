@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { db } from './db'
+import { store } from './store'
 
 // 本機優先同步：資料一律即時存在 IndexedDB，這裡在背景跟 Supabase 對帳。
 // 規則：同一筆以 updatedAt 較晚的為準（last-write-wins）。
@@ -14,6 +15,10 @@ export async function syncNow(userId) {
   try {
     await syncTable('holdings', db.holdings, userId, true)
     await syncTable('snapshots', db.snapshots, userId, false)
+    // 離線時在兩台裝置各自新增同一檔（id 不同），同步後兩筆都拉下來會重複，這裡收乾淨；
+    // 沒有重複的話這個函式幾乎不做任何事，可以放心每次同步都跑
+    const merged = await store.mergeDuplicateSymbolHoldings()
+    if (merged.length) await syncTable('holdings', db.holdings, userId, true)
   } catch (e) {
     console.warn('同步失敗：', e.message)
   } finally {
