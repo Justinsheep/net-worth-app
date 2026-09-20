@@ -1,8 +1,8 @@
 import { db } from './db'
 import { holdingIsCashLike } from './calc'
 
-// 加密貨幣的成本欄位是「持倉均價」，併入時不能像其他分類那樣直接相加
-const isAvgPriceCategory = (category) => category === 'crypto'
+// 所有有市價的分類成本欄位都是「持倉均價」，併入時不能直接相加（要留使用者填的均價）
+const isAvgPriceCategory = (category) => ['tw_stock', 'us_stock', 'crypto', 'fund'].includes(category)
 
 // 唯一的資料存取層。畫面一律透過 store.* 讀寫，不直接碰資料庫實作。
 // 未來要跨裝置同步時，複製一份 store 換成 Supabase 版本即可，介面不變。
@@ -133,8 +133,8 @@ export const store = {
     })
   },
 
-  // 賣出：依買入日期先進先出扣減股數（總投入金額同比例扣減；加密貨幣的均價不隨賣出比例
-  // 變動，因為均價本來就跟賣掉多少無關），賣完的那一筆軟刪除；款項加進指定帳戶。
+  // 賣出：依買入日期先進先出扣減股數，賣完的那一筆軟刪除；款項加進指定帳戶。
+  // 均價欄位跟賣掉多少無關（賣掉一半，剩下的每顆成本還是原本那個均價），只改數量。
   async applySell({ lots, sellQty, destId, credit }) {
     const now = Date.now()
     await db.transaction('rw', db.holdings, async () => {
@@ -147,19 +147,10 @@ export const store = {
         const take = Math.min(have, remain)
         remain -= take
         const left = have - take
-        const ratio = have ? left / have : 0
         if (left <= 0.00000001) {
           await db.holdings.update(lot.id, { quantity: 0, deleted: true, updatedAt: now })
-        } else if (isAvgPriceCategory(lot.category)) {
-          // 均價欄位跟賣掉多少無關（賣掉一半，剩下的每顆成本還是原本那個均價），只改數量
-          await db.holdings.update(lot.id, { quantity: left, updatedAt: now })
         } else {
-          await db.holdings.update(lot.id, {
-            quantity: left,
-            // 成本同比例縮減，剩下部位的成本均價才不會失真
-            ...(lot.totalCost ? { totalCost: Number(lot.totalCost) * ratio } : {}),
-            updatedAt: now,
-          })
+          await db.holdings.update(lot.id, { quantity: left, updatedAt: now })
         }
       }
       const dest = await db.holdings.get(destId)
@@ -252,6 +243,26 @@ export const store = {
     await db.transaction('rw', db.holdings, async () => {
       const items = await db.holdings
         .filter((h) => !h.deleted && h.category === 'crypto' && !holdingIsCashLike(h) && Number(h.totalCost) > 0 && Number(h.quantity) > 0)
+        .toArray()
+      for (const h of items) {
+        const avg = Number(h.totalCost) / Number(h.quantity)
+        await db.holdings.update(h.id, { totalCost: avg, updatedAt: now })
+        changed.push({ id: h.id, symbol: h.symbol, quantity: h.quantity, oldTotalCost: h.totalCost, newAvgPrice: avg })
+      }
+    })
+    return changed
+  },
+
+  // 一次性遷移：台股／美股／基金原本的 totalCost 存的是「總投入金額」，現在改成跟加密貨幣
+  // 一樣存「持倉均價」——換算後總成本＝均價×數量＝原本的總投入，損益數字不會變動，只是
+  // 「成本均價」這個顯示欄位從「算出來的」變成「存起來的」。只執行一次，不要重複執行
+  // （已經是均價的資料再除一次數量會錯）。
+  async convertStockFundCostToAvgPrice() {
+    const now = Date.now()
+    const changed = []
+    await db.transaction('rw', db.holdings, async () => {
+      const items = await db.holdings
+        .filter((h) => !h.deleted && ['tw_stock', 'us_stock', 'fund'].includes(h.category) && Number(h.totalCost) > 0 && Number(h.quantity) > 0)
         .toArray()
       for (const h of items) {
         const avg = Number(h.totalCost) / Number(h.quantity)

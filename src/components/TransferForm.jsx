@@ -271,11 +271,9 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
         const gross = num(amount) + num(fee)
         const costCurrency = source.currency === 'TWD' || source.currency === 'USD' ? source.currency : 'TWD'
         const costValue = costCurrency !== source.currency ? gross * rateToTwd(source.currency, fx, fxRates) : gross
-        // 加密貨幣的成本欄位是持倉均價（每顆成本），存這次買入的單價；
-        // 其他分類維持存這次買入的總成本
-        const totalCostToStore = buyCat === 'crypto'
-          ? (num(qty) ? costValue / num(qty) : undefined)
-          : costValue
+        // 成本欄位存的是持倉均價（每顆成本），所以這裡把這次買入的總花費（含手續費）
+        // 換算成單價再存，不是直接存總花費
+        const totalCostToStore = num(qty) ? costValue / num(qty) : undefined
         await store.applyBuy({
           sourceId,
           deduct: gross,

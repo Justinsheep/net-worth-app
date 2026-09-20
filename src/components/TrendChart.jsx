@@ -3,21 +3,42 @@ import { fmtTwd } from '../calc'
 
 const ACCENT = '#0FB5A3'
 
+// 週一為一週的開始，日期字串一律當 UTC 處理（跟快照的 date 產生方式一致）
+function weekStartKey(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  const diffToMonday = (d.getUTCDay() + 6) % 7
+  d.setUTCDate(d.getUTCDate() - diffToMonday)
+  return d.toISOString().slice(0, 10)
+}
+
+// 走勢圖改成一週更新一個點：同一週裡只留最新那一天的數字代表這週，
+// 底層每天照樣記錄快照（細節都還在），只是圖表顯示聚合成週線，比較不雜亂
+function toWeekly(data) {
+  const buckets = new Map()
+  for (const d of data) {
+    const key = weekStartKey(d.date)
+    const cur = buckets.get(key)
+    if (!cur || d.date > cur.date) buckets.set(key, d)
+  }
+  return [...buckets.values()].sort((a, b) => a.date.localeCompare(b.date))
+}
+
 export default function TrendChart({ snapshots, metric }) {
-  const data = (snapshots || [])
+  const daily = (snapshots || [])
     .map((s) => ({
       date: s.date,
       value: metric === 'asset' ? s.totalAssetTwd : s.netWorthTwd,
     }))
     .filter((d) => d.value != null)
+  const data = toWeekly(daily)
 
   const mmdd = (d) => (d ? d.slice(5).replace('-', '/') : '')
 
   if (data.length < 2) {
     return (
       <div className="trend-empty">
-        走勢會隨你每天開啟自動累積，多來幾天就會長出曲線。
-        {data.length === 1 ? '（目前有 1 個記錄點）' : ''}
+        走勢圖以週為單位更新，多累積幾週就會長出曲線。
+        {data.length === 1 ? '（目前有 1 週的記錄點）' : ''}
       </div>
     )
   }
