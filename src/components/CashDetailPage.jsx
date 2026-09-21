@@ -164,7 +164,9 @@ export default function CashDetailPage({
         {history.length === 0 ? (
           <div className="empty">還沒有任何變動紀錄。<br />用上面的按鈕記一筆，或用「編輯」直接改成本均價。</div>
         ) : (
-          history.map((entry) => <HistoryRow key={entry.id} entry={entry} unit={unit} qty={priced} />)
+          <div className="txn-scroll history">
+            {history.map((entry) => <HistoryRow key={entry.id} entry={entry} unit={unit} qty={priced} />)}
+          </div>
         )}
       </section>
 

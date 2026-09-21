@@ -573,6 +573,11 @@ body {
 .cash-actions .btn { flex: 1; }
 .history-row + .history-row { margin-top: 8px; }
 
+/* 變動紀錄清單：一次最多露出 4 列，超過的在清單內部上下滑動（高度＝4 列＋列距） */
+.txn-scroll { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.txn-scroll.history { max-height: 288px; }
+.txn-scroll.accounts { max-height: 160px; }
+
 @media (max-width: 480px) {
   .detail-hero .hero-value { font-size: 28px; }
   .detail-hero .hero-stats { gap: 20px 26px; }
@@ -663,8 +668,8 @@ body {
 }
 
 /* 詳細頁變動紀錄用滑動列 */
-.panel > .swipe-row { border-bottom: 1px dashed var(--line); }
-.panel > .swipe-row:last-child { border-bottom: none; }
+.panel > .swipe-row, .txn-scroll > .swipe-row { border-bottom: 1px dashed var(--line); }
+.panel > .swipe-row:last-child, .txn-scroll > .swipe-row:last-child { border-bottom: none; }
 .txn-front { padding: 11px 2px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .tabbar, .fab { transition: opacity 0.2s ease; }

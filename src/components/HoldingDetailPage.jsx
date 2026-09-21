@@ -101,9 +101,11 @@ export default function HoldingDetailPage({ groupKey, holdings, fx, fxRates, onB
             <button className="btn danger sm" onClick={deleteAll}>刪除整組</button>
           </div>
         </div>
-        {items.map((h) => (
-          <TxnRow key={h.id} h={h} fx={fx} fxRates={fxRates} openSwipe={openSwipe} onOpenSwipeChange={setOpenSwipe} onOpenItem={onOpenItem} onEdit={onEdit} onDelete={(one) => onDelete([one])} />
-        ))}
+        <div className="txn-scroll accounts">
+          {items.map((h) => (
+            <TxnRow key={h.id} h={h} fx={fx} fxRates={fxRates} openSwipe={openSwipe} onOpenSwipeChange={setOpenSwipe} onOpenItem={onOpenItem} onEdit={onEdit} onDelete={(one) => onDelete([one])} />
+          ))}
+        </div>
       </section>
     </div>
   )
