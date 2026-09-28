@@ -176,7 +176,7 @@ export default function CashDetailPage({
           title={mode === 'delta'
             ? `增減${priced ? '數量' : '金額'}（可輸入負數表示減少）`
             : `修改${priced ? '數量' : '餘額'}`}
-          value={mode === 'set' ? String(holding.quantity) : ''}
+          value=""
           allowNegative={mode === 'delta'}
           onCommit={commitPad}
           onClose={() => setMode(null)}
