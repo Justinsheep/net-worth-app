@@ -172,6 +172,7 @@ export default function CashDetailPage({
 
       {mode && (
         <NumberPad
+          key={mode + ':' + holding.id}
           title={mode === 'delta'
             ? `增減${priced ? '數量' : '金額'}（可輸入負數表示減少）`
             : `修改${priced ? '數量' : '餘額'}`}
