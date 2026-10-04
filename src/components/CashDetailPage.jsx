@@ -18,7 +18,7 @@ function HistoryRow({ entry, unit, qty }) {
   const fmt = qty ? fmtQty : fmtNum
   return (
     <div className="tx-preview-row history-row">
-      <div className="tx-preview-name">{fmtDateTime(entry.at)}</div>
+      <div className="tx-preview-name">{fmtDateTime(entry.at)}{entry.note ? ` · ${entry.note}` : ''}</div>
       <div className="tx-preview-calc">
         <span className="tx-before">{fmt(entry.before)}</span>
         <span className="tx-arrow" aria-hidden="true">→</span>

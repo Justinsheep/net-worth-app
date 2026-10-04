@@ -58,6 +58,13 @@ async function upsertSymbolHolding(rec, now, note) {
   return id
 }
 
+// 數量改變時順手留一筆變動紀錄（買入/賣出/轉帳動到的帳戶用，adjustHolding 自己另外處理）
+function qtyChangePatch(h, after, now, note) {
+  const before = Number(h.quantity || 0)
+  const entry = { id: uid(), type: 'delta', before, after, delta: after - before, note, at: now }
+  return { quantity: after, history: [...(h.history || []), entry], updatedAt: now }
+}
+
 export const store = {
   // ---- 持倉 / 負債 ----
   async listHoldings() {
@@ -119,16 +126,13 @@ export const store = {
   // ---- 交易：一次動到兩邊（買入 / 賣出 / 轉帳）----
   // 全部包在同一個交易裡，避免只成功一半導致帳目對不起來。
 
-  // 買入：從帳戶扣款，併入（或新增）持股
+  // 買入：從帳戶扣款，併入（或新增）持股。扣款帳戶也會留一筆變動紀錄。
   async applyBuy({ sourceId, deduct, holding }) {
     const now = Date.now()
     await db.transaction('rw', db.holdings, async () => {
       const src = await db.holdings.get(sourceId)
       if (!src) throw new Error('找不到扣款帳戶')
-      await db.holdings.update(sourceId, {
-        quantity: Number(src.quantity || 0) - Number(deduct || 0),
-        updatedAt: now,
-      })
+      await db.holdings.update(sourceId, qtyChangePatch(src, Number(src.quantity || 0) - Number(deduct || 0), now, `買入 ${holding.name || holding.symbol || ''}`.trim()))
       await upsertSymbolHolding(holding, now, '買入')
     })
   },
@@ -148,35 +152,27 @@ export const store = {
         remain -= take
         const left = have - take
         if (left <= 0.00000001) {
-          await db.holdings.update(lot.id, { quantity: 0, deleted: true, updatedAt: now })
+          await db.holdings.update(lot.id, { ...qtyChangePatch(lot, 0, now, '賣出'), deleted: true })
         } else {
-          await db.holdings.update(lot.id, { quantity: left, updatedAt: now })
+          await db.holdings.update(lot.id, qtyChangePatch(lot, left, now, '賣出'))
         }
       }
       const dest = await db.holdings.get(destId)
       if (!dest) throw new Error('找不到入帳帳戶')
-      await db.holdings.update(destId, {
-        quantity: Number(dest.quantity || 0) + Number(credit || 0),
-        updatedAt: now,
-      })
+      const soldName = lots[0]?.name || lots[0]?.symbol || ''
+      await db.holdings.update(destId, qtyChangePatch(dest, Number(dest.quantity || 0) + Number(credit || 0), now, `賣出 ${soldName} 入帳`.trim()))
     })
   },
 
-  // 轉帳：A 帳戶扣、B 帳戶加（跨幣別時兩邊金額各自填）
+  // 轉帳：A 帳戶扣、B 帳戶加（跨幣別時兩邊金額各自填），兩邊帳戶各留一筆變動紀錄
   async applyTransfer({ fromId, fromAmount, toId, toAmount }) {
     const now = Date.now()
     await db.transaction('rw', db.holdings, async () => {
       const from = await db.holdings.get(fromId)
       const to = await db.holdings.get(toId)
       if (!from || !to) throw new Error('找不到帳戶')
-      await db.holdings.update(fromId, {
-        quantity: Number(from.quantity || 0) - Number(fromAmount || 0),
-        updatedAt: now,
-      })
-      await db.holdings.update(toId, {
-        quantity: Number(to.quantity || 0) + Number(toAmount || 0),
-        updatedAt: now,
-      })
+      await db.holdings.update(fromId, qtyChangePatch(from, Number(from.quantity || 0) - Number(fromAmount || 0), now, `轉出至 ${to.name}`))
+      await db.holdings.update(toId, qtyChangePatch(to, Number(to.quantity || 0) + Number(toAmount || 0), now, `轉入自 ${from.name}`))
     })
   },
 
