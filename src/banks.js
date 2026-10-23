@@ -12,4 +12,12 @@ export const TW_BANKS = [
   '遠東國際商業銀行', '元大商業銀行', '永豐商業銀行', '玉山商業銀行',
   '凱基商業銀行', '星展(台灣)商業銀行', '台新國際商業銀行', '安泰商業銀行',
   '中國信託商業銀行', '將來商業銀行', '連線商業銀行', '樂天國際商業銀行',
+  '中華郵政',
 ]
+
+// 搜尋用的別名：打「郵局」也要找得到「中華郵政」
+const ALIASES = { '中華郵政': ['郵局', '郵政', '郵儲'] }
+
+export function searchBanks(q) {
+  return TW_BANKS.filter((b) => b.includes(q) || (ALIASES[b] || []).some((a) => a.includes(q) || q.includes(a)))
+}

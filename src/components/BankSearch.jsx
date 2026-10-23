@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { TW_BANKS } from '../banks'
+import { TW_BANKS, searchBanks } from '../banks'
 import { useFloatingRect } from '../useFloatingRect'
 
 export default function BankSearch({ value, onChange, onSelect, placeholder, autoFocus }) {
@@ -22,7 +22,7 @@ export default function BankSearch({ value, onChange, onSelect, placeholder, aut
     onChange(v)
     const q = v.trim()
     if (!q) { setOpen(false); return }
-    setMatches(TW_BANKS.filter((b) => b.includes(q)))
+    setMatches(searchBanks(q))
     setOpen(true)
   }
 
@@ -38,7 +38,7 @@ export default function BankSearch({ value, onChange, onSelect, placeholder, aut
         ref={inputRef}
         value={value}
         onChange={(e) => onType(e.target.value)}
-        onFocus={() => { const q = value.trim(); if (q) { setMatches(TW_BANKS.filter((b) => b.includes(q))); setOpen(true) } }}
+        onFocus={() => { const q = value.trim(); if (q) { setMatches(searchBanks(q)); setOpen(true) } }}
         placeholder={placeholder}
         autoComplete="off"
         autoFocus={autoFocus}
