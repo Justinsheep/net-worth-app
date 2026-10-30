@@ -83,7 +83,7 @@ export async function fetchOneFundPrice(code) {
 }
 
 export async function loadPrices(holdings) {
-  const out = { prices: {}, changePct: {}, fxUsdTwd: null, fxRates: null, stockUpdatedAt: null, errors: [] }
+  const out = { prices: {}, changePct: {}, hist: {}, fxUsdTwd: null, fxRates: null, stockUpdatedAt: null, errors: [] }
 
   // ---- 匯率：一次抓回「相對 USD」的完整匯率表，可換算任何幣別 ----
   try {
@@ -142,6 +142,7 @@ export async function loadPrices(holdings) {
         out.prices[`fund:${sym.toUpperCase()}`] = Number(nav)
       }
       out.stockUpdatedAt = j.updatedAt || null
+      out.hist = j.hist || {} // 個別標的的歷史高點等（投資規則用），由 gen-data.mjs 產生
     }
   } catch {
     // prices.json 不存在或格式錯誤：退回手動價，不算錯誤

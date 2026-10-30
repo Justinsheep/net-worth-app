@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
 import { store } from './store'
-import { summarize, summarizePnl, todayChangeRatio, holdingIsCashLike, fmtTwd, fmtPct, fmtSignedTwd } from './calc'
+import { summarize, summarizePnl, todayChangeRatio, holdingIsCashLike, holdingValueTwd, effectiveUnitPrice, priceKey, fmtTwd, fmtPct, fmtSignedTwd } from './calc'
 import { loadPrices } from './prices'
 import { supabase, supabaseEnabled } from './supabase'
 import { syncNow, wipeCloud } from './sync'
@@ -17,6 +17,9 @@ import ConfirmClearModal from './components/ConfirmClearModal'
 import DeletedPanel from './components/DeletedPanel'
 import SpotlightTour from './components/SpotlightTour'
 import TransferForm from './components/TransferForm'
+import PlanCard from './components/PlanCard'
+import PlanSettings from './components/PlanSettings'
+import { PLAN_ID, normalizePlan, evaluate, markUsed } from './plan'
 import { version as APP_VERSION } from '../package.json'
 
 const TAB_ORDER = ['overview', 'holdings', 'trend', 'settings']
@@ -47,6 +50,7 @@ export default function App() {
     [], []
   )
   const snapshots = useLiveQuery(() => db.snapshots.orderBy('date').toArray(), [], [])
+  const planRec = useLiveQuery(() => db.snapshots.get(PLAN_ID), [], null)
   const deletedHoldings = useLiveQuery(
     () => db.holdings.orderBy('updatedAt').reverse().filter((h) => !!h.deleted && !h.purged).toArray(),
     [], []
@@ -67,12 +71,14 @@ export default function App() {
   const [clearing, setClearing] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [transferPreset, setTransferPreset] = useState(null)
   const [symbolPrefs, setSymbolPrefs] = useState({})
   const [simpleMode, setSimpleMode] = useState(false)
   const [detailKey, setDetailKey] = useState(null)
   const [openCat, setOpenCat] = useState(null)
   const [rowOrders, setRowOrders] = useState({}) // 細項頁：使用者長按拖曳存下的列順序，依分類 key 分開存
   const [changePct, setChangePct] = useState({})
+  const [hist, setHist] = useState({}) // 個別標的的歷史高點等（來自 prices.json）
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
   const scrollAnchorRef = useRef(0) // 上次「決定要不要收起」時的捲動位置，滑動要離這裡夠遠才會再次切換
@@ -203,6 +209,7 @@ export default function App() {
       const r = await loadPrices(holdings)
       setPrices(r.prices)
       setChangePct(r.changePct || {})
+      setHist(r.hist || {})
       setPriceMeta({ updatedAt: new Date().toISOString(), stockUpdatedAt: r.stockUpdatedAt, errors: r.errors })
       if (r.fxRates) setFxRates(r.fxRates)
       if (fxAuto && r.fxUsdTwd) {
@@ -233,6 +240,38 @@ export default function App() {
   }
 
   const hideAmounts = useSyncExternalStore(subscribeHideAmounts, getHideAmounts)
+
+  // ---- 投資規則（00631L）：算出今天該怎麼做 ----
+  const plan = useMemo(() => (planRec ? normalizePlan(planRec) : null), [planRec])
+  const planStock = plan ? holdings.find((h) => h.category === 'tw_stock' && String(h.symbol || '').toUpperCase() === plan.symbol) : null
+  const planPool = plan?.poolId ? holdings.find((h) => h.id === plan.poolId) : null
+  const planPrice = plan ? (planStock ? effectiveUnitPrice(planStock, prices) : prices[priceKey({ category: 'tw_stock', symbol: plan.symbol })]) : null
+  const planEval = useMemo(() => {
+    if (!plan?.enabled || !planPool) return null
+    return evaluate(plan, {
+      stockValue: planStock ? holdingValueTwd(planStock, fx, prices, fxRates) : 0,
+      poolValue: holdingValueTwd(planPool, fx, prices, fxRates),
+      price: Number(planPrice) || 0,
+      hist: hist[plan.symbol],
+    })
+  }, [plan, planStock, planPool, planPrice, fx, prices, fxRates, hist])
+  // 創新高換新一輪、暫停旗標改變等狀態變動才寫回（寫回後不再變動，不會無限循環）
+  useEffect(() => {
+    if (planEval?.ready && planEval.changed) store.putPlan(planEval.plan)
+  }, [planEval])
+  const planAccounts = holdings.filter((h) => h.category === 'bank' || h.category === 'cash' || (h.category === 'crypto' && h.subtype === 'exchange'))
+  function planTradeDeploy(d) {
+    setTransferPreset({ mode: 'buy', sourceId: plan.poolId, buyCat: 'tw_stock', symbol: plan.symbol, name: planStock?.name || '元大台灣50正2', amount: d.amount })
+    setTransferOpen(true)
+  }
+  function planTradeSell(s) {
+    const qty = planStock ? Number(planStock.quantity || 0) : 0
+    setTransferPreset({ mode: 'sell', destId: plan.poolId, posKey: 'tw_stock:' + plan.symbol, sellQty: Math.min(qty, Math.round(s.shares)) })
+    setTransferOpen(true)
+  }
+  function planMarkUsed(indexes, amount) {
+    store.putPlan(markUsed(plan, indexes, { price: planEval.price, amount, date: new Date().toISOString().slice(0, 10) }))
+  }
   const { totalAsset, totalDebt, netWorth, byCat } = summarize(holdings, fx, prices, fxRates)
   const pnl = summarizePnl(holdings, fx, prices)
   const todayChange = todayChangeRatio(holdings, fx, prices, fxRates, changePct)
@@ -414,6 +453,13 @@ export default function App() {
               </div>
             </section>
 
+            {planEval && (
+              <PlanCard result={planEval} poolName={planPool?.name} onMarkUsed={planMarkUsed} onTradeDeploy={planTradeDeploy} onTradeSell={planTradeSell} />
+            )}
+            {plan?.enabled && !planPool && (
+              <section className="panel plan-card"><h3 className="panel-title">00631L 今日建議</h3><p className="plan-note">還沒綁定現金池帳戶，請到「設定 → 投資規則」選一個帳戶。</p></section>
+            )}
+
             <div className="pricebar">
               <span className={'pricebar-status' + (loading ? ' loading' : '')}>
                 <span className="live-dot" />
@@ -579,6 +625,8 @@ export default function App() {
               </div>
             </section>
 
+            <PlanSettings plan={plan} accounts={planAccounts} hist={hist[plan?.symbol || '00631L']} result={planEval} onSave={(p) => store.putPlan(p)} />
+
             <section className="panel danger-panel">
               <h3 className="panel-title">危險區域</h3>
               <div className="settings-row">
@@ -650,7 +698,8 @@ export default function App() {
       {transferOpen && (
         <TransferForm
           holdings={holdings} fx={fx} fxRates={fxRates} prices={prices}
-          onClose={() => setTransferOpen(false)}
+          preset={transferPreset}
+          onClose={() => { setTransferOpen(false); setTransferPreset(null) }}
         />
       )}
       {showOnboarding && (

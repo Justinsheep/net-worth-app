@@ -58,8 +58,10 @@ function AccountSelect({ label, accounts, value, onChange, excludeId }) {
   )
 }
 
-export default function TransferForm({ holdings, fx, fxRates, prices, onClose }) {
-  const [mode, setMode] = useState('buy')
+// preset：從投資規則卡片帶進來的預填值 { mode, sourceId, destId, buyCat, symbol, name, amount, posKey, sellQty }
+export default function TransferForm({ holdings, fx, fxRates, prices, onClose, preset }) {
+  const pre = preset || {}
+  const [mode, setMode] = useState(pre.mode || 'buy')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -80,24 +82,24 @@ export default function TransferForm({ holdings, fx, fxRates, prices, onClose })
   }, [holdings])
 
   // ---- 共用欄位 ----
-  const [sourceId, setSourceId] = useState('')
-  const [destId, setDestId] = useState('')
-  const [amount, setAmount] = useState('')     // 買入金額 / 賣出金額 / 轉出金額
+  const [sourceId, setSourceId] = useState(pre.sourceId || '')
+  const [destId, setDestId] = useState(pre.destId || '')
+  const [amount, setAmount] = useState(pre.amount != null ? String(pre.amount) : '')     // 買入金額 / 賣出金額 / 轉出金額
   const [amount2, setAmount2] = useState('')   // 轉帳：轉入金額（跨幣別時才需要另外填）
   const [fee, setFee] = useState('')
 
   // ---- 買入專用 ----
-  const [buyCat, setBuyCat] = useState('tw_stock')
+  const [buyCat, setBuyCat] = useState(pre.buyCat || 'tw_stock')
   const [buySubtype, setBuySubtype] = useState('')
-  const [symbol, setSymbol] = useState('')
-  const [name, setName] = useState('')
+  const [symbol, setSymbol] = useState(pre.symbol || '')
+  const [name, setName] = useState(pre.name || '')
   const [qty, setQty] = useState('')
   const [buyDate, setBuyDate] = useState(new Date().toISOString().slice(0, 10))
   const [livePrice, setLivePrice] = useState(null)
 
   // ---- 賣出專用 ----
-  const [posKey, setPosKey] = useState('')
-  const [sellQty, setSellQty] = useState('')
+  const [posKey, setPosKey] = useState(pre.posKey || '')
+  const [sellQty, setSellQty] = useState(pre.sellQty != null ? String(pre.sellQty) : '')
 
   const source = accounts.find((a) => a.id === sourceId)
   const dest = accounts.find((a) => a.id === destId)

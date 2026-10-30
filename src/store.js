@@ -1,5 +1,6 @@
 import { db } from './db'
 import { holdingIsCashLike } from './calc'
+import { PLAN_ID, normalizePlan } from './plan'
 
 // 所有有市價的分類成本欄位都是「持倉均價」，併入時不能直接相加（要留使用者填的均價）
 const isAvgPriceCategory = (category) => ['tw_stock', 'us_stock', 'crypto', 'fund'].includes(category)
@@ -285,6 +286,18 @@ export const store = {
   },
   async setRowOrder(catKey, orderedKeys) {
     await db.settings.put({ key: 'rowOrder:' + catKey, value: orderedKeys })
+  },
+
+  // ---- 投資規則（00631L）的設定與狀態 ----
+  // 借用 snapshots 這張表存（id 固定是 plan:00631L）：它本來就會跟 Supabase 雙向同步、也包含在備份裡，
+  // 所以不用在雲端另外建表就能跨裝置同步。這筆沒有 date 欄位，不在 date 索引裡，
+  // 所以走勢圖用的 orderBy('date') 讀不到它，不會干擾。
+  async getPlan() {
+    const r = await db.snapshots.get(PLAN_ID)
+    return r ? normalizePlan(r) : null
+  },
+  async putPlan(plan) {
+    await db.snapshots.put({ ...plan, id: PLAN_ID, updatedAt: Date.now() })
   },
 
   // ---- 每日淨值快照（第 3 階段會用到）----

@@ -7,6 +7,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { HIST_CODES, loadSeed, loadRows, adjustForSplits, summarize } from './hist.mjs'
 
 const root = process.cwd()
 
@@ -451,10 +452,31 @@ async function fundPrices() {
   return prices
 }
 
+// 投資規則要用的歷史高點：證交所歷史收盤（seed 檔 + 補抓最近幾個月），還原股票分割後算出高點。
+// 抓不到就退回只用 seed，再不行就不寫，前端會提示並允許手動輸入高點。
+async function histData() {
+  const out = {}
+  const seed = await loadSeed()
+  for (const code of HIST_CODES) {
+    let rows = seed[code]?.rows || []
+    try {
+      rows = await loadRows(code, seed, { coldMonths: 14 })
+    } catch (e) {
+      console.warn('歷史收盤補抓失敗，退回 seed：', code, e.message)
+    }
+    if (!rows.length) continue
+    const { adj, splits } = adjustForSplits(rows)
+    const s = summarize(adj)
+    if (s) out[code] = { ...s, splits }
+  }
+  return out
+}
+
 async function main() {
   const [tw, crypto, usStock, fundData] = await Promise.all([twData(), cryptoSymbols(), usStockSymbols(), fundSymbols()])
   const now = new Date().toISOString()
   const fund = fundData.funds
+  const hist = await histData().catch((e) => { console.warn('histData 失敗：', e.message); return {} })
 
   await fs.mkdir(path.join(root, 'public'), { recursive: true })
   await fs.writeFile(
@@ -477,6 +499,7 @@ async function main() {
       tw_stock_chg: tw.chg,
       us_stock: usPrices,
       fund: fundNav,
+      hist,
     }, null, 2)
   )
 

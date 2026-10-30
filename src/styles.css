@@ -720,3 +720,41 @@ body {
 .tx-delta { margin-left: auto; font-weight: 600; }
 .tx-delta.pos { color: var(--pos); }
 .tx-delta.neg { color: var(--neg); }
+
+/* ---------- 投資規則（00631L）：總覽卡片 + 設定頁 ---------- */
+.plan-card { display: flex; flex-direction: column; gap: 12px; }
+.plan-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.plan-ratio { font-family: var(--font-mono); font-size: 12px; color: var(--accent-ink); background: var(--accent-soft); border-radius: 999px; padding: 3px 10px; }
+.plan-note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.plan-warn { color: var(--neg); font-size: 12px; }
+.plan-alert { border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.plan-alert.deploy { background: var(--pos-soft); border: 1px solid rgba(47, 125, 92, 0.3); }
+.plan-alert.sell { background: var(--neg-soft); border: 1px solid rgba(143, 47, 66, 0.3); }
+.plan-alert-title { font-weight: 700; font-size: 14px; color: var(--ink); }
+.plan-alert-body { font-size: 13px; line-height: 1.7; color: var(--ink); }
+.plan-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.plan-money { background: var(--bg-tint); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.plan-money-label { font-size: 12px; color: var(--muted); }
+.plan-money-value { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--ink); }
+.plan-money-value.stock { color: var(--pos); }
+.plan-money-value.pool { color: var(--accent-ink); }
+.plan-money-amt { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
+.plan-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.plan-stats > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plan-stat-label { font-size: 11px; color: var(--faint); }
+.plan-stat-value { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--ink); }
+.plan-stat-value.neg-if { color: var(--neg); }
+.plan-stat-sub { font-size: 11px; color: var(--faint); }
+.plan-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); background: transparent; font-family: inherit; }
+.plan-pill.used { background: var(--bg-tint); color: var(--faint); border-color: transparent; }
+.plan-pill.pending { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
+.plan-pill.btn-like { cursor: pointer; }
+.plan-set-block { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px dashed var(--line); }
+.plan-set-label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.plan-set-hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.plan-set-input { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); }
+.plan-adv { border-top: 1px dashed var(--line); padding-top: 12px; }
+.plan-adv summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
+.plan-adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.plan-adv-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
