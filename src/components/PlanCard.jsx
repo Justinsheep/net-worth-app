@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { fmtTwd, fmtNum } from '../calc'
 
 const pct = (x, d = 1) => (x == null ? '—' : (x * 100).toFixed(d) + '%')
@@ -6,6 +7,15 @@ const trancheText = (idx) => idx.map((i) => i + 1).join('、')
 // 總覽頁的「今日 00631L 建議」卡片：一眼看出今天新資金該進現金池還是買正二，
 // 以及有沒有加碼（下跌）或賣出（占比過高）的指示。
 export default function PlanCard({ result, poolName, onMarkUsed, onTradeDeploy, onTradeSell }) {
+  // 收合狀態記在這台裝置（localStorage），下次打開維持上次的樣子
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem('planCardOpen') !== '0' } catch { return true }
+  })
+  function toggle() {
+    const next = !open
+    setOpen(next)
+    try { localStorage.setItem('planCardOpen', next ? '1' : '0') } catch { /* 無痕模式等情況存不了就算了 */ }
+  }
   if (!result) return null
   if (!result.ready) {
     return (
@@ -25,12 +35,26 @@ export default function PlanCard({ result, poolName, onMarkUsed, onTradeDeploy, 
 
   return (
     <section className="panel plan-card" data-tour="plan-card">
-      <div className="plan-head">
-        <h3 className="panel-title">00631L 今日建議</h3>
+      <button type="button" className="plan-head plan-toggle" onClick={toggle} aria-expanded={open}>
+        <span className="plan-toggle-title">
+          <span className={'chev' + (open ? ' open' : '')} aria-hidden="true">›</span>
+          <h3 className="panel-title">00631L 今日建議</h3>
+        </span>
         <span className="plan-ratio" title={`正二 ${fmtTwd(r.stockValue)}　現金池 ${fmtTwd(r.poolValue)}`}>
           占比 {pct(r.ratio)}
         </span>
-      </div>
+      </button>
+
+      {!open && (
+        <div className="plan-summary">
+          {sell && <div className="plan-summary-alert sell">賣出正二約 {fmtTwd(sell.amount)}</div>}
+          {deploy && <div className="plan-summary-alert deploy">動用第 {trancheText(deploy.indexes)} 倉加碼 {fmtTwd(deploy.amount)}</div>}
+          <div>新資金 → <b className={'plan-money-value ' + m.mode}>{moneyTitle}</b></div>
+        </div>
+      )}
+
+      {open && (
+        <>
 
       {sell && (
         <div className="plan-alert sell">
@@ -106,6 +130,8 @@ export default function PlanCard({ result, poolName, onMarkUsed, onTradeDeploy, 
           ? `下一倉：第 ${r.nextTrigger.index + 1} 倉，收盤跌到 ${fmtNum(r.nextTrigger.triggerPrice)}（−${r.nextTrigger.level}%）觸發`
           : deploy ? '' : '這一輪的倉都已動用或觸發，等創新高開始新一輪'}
       </div>
+        </>
+      )}
     </section>
   )
 }

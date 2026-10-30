@@ -453,13 +453,6 @@ export default function App() {
               </div>
             </section>
 
-            {planEval && (
-              <PlanCard result={planEval} poolName={planPool?.name} onMarkUsed={planMarkUsed} onTradeDeploy={planTradeDeploy} onTradeSell={planTradeSell} />
-            )}
-            {plan?.enabled && !planPool && (
-              <section className="panel plan-card"><h3 className="panel-title">00631L 今日建議</h3><p className="plan-note">還沒綁定現金池帳戶，請到「設定 → 投資規則」選一個帳戶。</p></section>
-            )}
-
             <div className="pricebar">
               <span className={'pricebar-status' + (loading ? ' loading' : '')}>
                 <span className="live-dot" />
@@ -478,6 +471,13 @@ export default function App() {
               <h3 className="panel-title">資產配置</h3>
               <AllocationChart byCat={byCat} />
             </section>
+
+            {planEval && (
+              <PlanCard result={planEval} poolName={planPool?.name} onMarkUsed={planMarkUsed} onTradeDeploy={planTradeDeploy} onTradeSell={planTradeSell} />
+            )}
+            {plan?.enabled && !planPool && (
+              <section className="panel plan-card"><h3 className="panel-title">00631L 今日建議</h3><p className="plan-note">還沒綁定現金池帳戶，請到「設定 → 投資規則」選一個帳戶。</p></section>
+            )}
           </div>
         )}
 

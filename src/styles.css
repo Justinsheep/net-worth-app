@@ -758,3 +758,11 @@ body {
 .plan-adv summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
 .plan-adv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 .plan-adv-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.plan-toggle { background: none; border: none; padding: 0; width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.plan-toggle-title { display: flex; align-items: center; gap: 8px; }
+.plan-toggle-title .chev { width: 10px; }
+.plan-summary { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink); }
+.plan-summary-alert { border-radius: 8px; padding: 6px 10px; font-weight: 600; }
+.plan-summary-alert.deploy { background: var(--pos-soft); color: var(--pos); }
+.plan-summary-alert.sell { background: var(--neg-soft); color: var(--neg); }
+.plan-summary .plan-money-value { font-size: 14px; }
