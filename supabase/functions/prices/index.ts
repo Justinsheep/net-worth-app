@@ -81,6 +81,10 @@ async function fetchTwRealtime(codes: string[]) {
     const ms = Number(r.tlong)
     if (Number.isFinite(ms) && ms > 0) time[r.c] = new Date(ms).toISOString()
   }
+  if (!Object.keys(prices).length) {
+    // 沒有任何一檔有價：把證交所回的訊息帶回去，方便判斷是被擋、沒開盤還是代號錯
+    throw new Error(`MIS 沒有回傳報價（筆數 ${(j?.msgArray ?? []).length}，rtcode ${j?.rtcode ?? '?'}，${j?.rtmessage ?? '無訊息'}）`)
+  }
   return { prices, changePct, time }
 }
 
@@ -110,7 +114,7 @@ Deno.serve(async (req) => {
       : []
 
     const twList = Array.isArray(body.tw)
-      ? [...new Set(body.tw.map((s: unknown) => String(s || '').toUpperCase().trim()).filter((s: string) => /^d{4,6}[A-Z]?$/.test(s)))].slice(0, 20)
+      ? [...new Set(body.tw.map((s: unknown) => String(s || '').toUpperCase().trim()).filter((s: string) => /^\d{4,6}[A-Z]?$/.test(s)))].slice(0, 20)
       : []
 
     const errors: string[] = []
