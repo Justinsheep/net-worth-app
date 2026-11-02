@@ -5,9 +5,12 @@
 // 所以由這個 Function 代抓，再回傳給我們自己的網頁，就能做到「使用者一上線就是最新價」。
 //
 // 呼叫方式（POST）：
-//   { "us": ["AAPL", "TSLA"], "fund": ["ACFT01"] }
+//   { "us": ["AAPL", "TSLA"], "fund": ["ACFT01"], "tw": ["00631L"] }
 // 回傳：
-//   { "us": { "AAPL": 186.43 }, "fund": { "ACFT01": 264.96 }, "errors": [] }
+//   { "us": { "AAPL": 186.43 }, "usChg": {}, "fund": { "ACFT01": 264.96 },
+//     "tw": { "00631L": 33.75 }, "twChg": { "00631L": -0.012 }, "twTime": { "00631L": "2026-11-02T02:13:59.000Z" }, "errors": [] }
+//
+// tw＝台股盤中即時價（證交所 MIS 即時行情，瀏覽器沒有 CORS 不能直連）。收盤後／假日就是最後一盤的收盤價。
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -53,6 +56,34 @@ async function fetchUsPrices(symbols: string[]) {
 }
 
 // ---- 基金：MoneyDJ 的基金頁面，解析最新一筆淨值 ----
+// ---- 台股：證交所 MIS 即時行情（最新成交價、昨收、最後更新時間）----
+async function fetchTwRealtime(codes: string[]) {
+  const prices: Record<string, number> = {}
+  const changePct: Record<string, number> = {}
+  const time: Record<string, string> = {}
+  if (!codes.length) return { prices, changePct, time }
+  const ex = codes.flatMap((c) => [`tse_${c}.tw`, `otc_${c}.tw`]).join('|')
+  const res = await fetch(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(ex)}&json=1&delay=0`, {
+    headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://mis.twse.com.tw/stock/index.jsp' },
+  })
+  if (!res.ok) throw new Error(`MIS HTTP ${res.status}`)
+  const j = await res.json()
+  const num = (v: unknown) => {
+    const n = Number(String(v ?? '').replace(/,/g, ''))
+    return Number.isFinite(n) ? n : null
+  }
+  for (const r of j?.msgArray ?? []) {
+    const price = num(r.z) ?? num(r.trade?.z) // z 是最新成交價；剛開盤還沒成交時是 '-'，退回最近一筆成交
+    const prev = num(r.y)
+    if (!(price != null && price > 0)) continue
+    prices[r.c] = price
+    if (prev != null && prev > 0) changePct[r.c] = (price - prev) / prev
+    const ms = Number(r.tlong)
+    if (Number.isFinite(ms) && ms > 0) time[r.c] = new Date(ms).toISOString()
+  }
+  return { prices, changePct, time }
+}
+
 async function fetchFundNav(code: string) {
   const res = await fetch(`https://www.moneydj.com/funddj/ya/yp010000.djhtm?a=${encodeURIComponent(code)}`, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
@@ -78,7 +109,14 @@ Deno.serve(async (req) => {
       ? [...new Set(body.fund.map((s: unknown) => String(s || '').toUpperCase().trim()).filter(Boolean))].slice(0, MAX_SYMBOLS)
       : []
 
+    const twList = Array.isArray(body.tw)
+      ? [...new Set(body.tw.map((s: unknown) => String(s || '').toUpperCase().trim()).filter((s: string) => /^d{4,6}[A-Z]?$/.test(s)))].slice(0, 20)
+      : []
+
     const errors: string[] = []
+    let tw: Record<string, number> = {}
+    let twChg: Record<string, number> = {}
+    let twTime: Record<string, string> = {}
     let us: Record<string, number> = {}
     let usChg: Record<string, number> = {}
     const fund: Record<string, number> = {}
@@ -90,6 +128,17 @@ Deno.serve(async (req) => {
       errors.push(...r.errors)
     }
 
+    if (twList.length) {
+      try {
+        const r = await fetchTwRealtime(twList)
+        tw = r.prices
+        twChg = r.changePct
+        twTime = r.time
+      } catch (err) {
+        errors.push(`台股即時價失敗：${err instanceof Error ? err.message : err}`)
+      }
+    }
+
     if (fundList.length) {
       const results = await Promise.allSettled(fundList.map((c) => fetchFundNav(c)))
       results.forEach((r, i) => {
@@ -98,12 +147,12 @@ Deno.serve(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify({ us, usChg, fund, errors }), {
+    return new Response(JSON.stringify({ us, usChg, fund, tw, twChg, twTime, errors }), {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
     return new Response(
-      JSON.stringify({ us: {}, usChg: {}, fund: {}, errors: [String(e instanceof Error ? e.message : e)] }),
+      JSON.stringify({ us: {}, usChg: {}, fund: {}, tw: {}, twChg: {}, twTime: {}, errors: [String(e instanceof Error ? e.message : e)] }),
       { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     )
   }

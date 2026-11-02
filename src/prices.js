@@ -45,8 +45,8 @@ export async function fetchOneCryptoPrice(symbol) {
 // 美股報價、基金淨值：瀏覽器不能直連 Stooq / MoneyDJ（CORS 實測確認被擋），
 // 改由我們自己的 Supabase Edge Function 在伺服器端代抓，這樣使用者一上線就是最新價。
 // Edge Function 掛掉或還沒部署時，會自動退回 GitHub Actions 排程寫進 prices.json 的快取價。
-async function fetchViaEdge(usSymbols, fundSymbols) {
-  if (!SUPABASE_URL || (!usSymbols.length && !fundSymbols.length)) return null
+async function fetchViaEdge(usSymbols, fundSymbols, twSymbols = []) {
+  if (!SUPABASE_URL || (!usSymbols.length && !fundSymbols.length && !twSymbols.length)) return null
   const res = await fetch(`${SUPABASE_URL}/functions/v1/prices`, {
     method: 'POST',
     headers: {
@@ -54,7 +54,7 @@ async function fetchViaEdge(usSymbols, fundSymbols) {
       apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
     },
-    body: JSON.stringify({ us: usSymbols, fund: fundSymbols }),
+    body: JSON.stringify({ us: usSymbols, fund: fundSymbols, tw: twSymbols }),
   })
   if (!res.ok) throw new Error(`Edge Function HTTP ${res.status}`)
   return res.json()
@@ -81,6 +81,10 @@ export async function fetchOneFundPrice(code) {
     return null
   }
 }
+
+// 這幾檔台股要用盤中即時價（其餘台股維持每日收盤）。即時價靠 Edge Function 代抓證交所 MIS（瀏覽器沒有 CORS 不能直連）；
+// Edge Function 還沒更新或抓不到時，就沿用 prices.json 裡排程寫進去的即時價／收盤價。
+export const REALTIME_TW = ['00631L']
 
 export async function loadPrices(holdings) {
   const out = { prices: {}, changePct: {}, hist: {}, realtime: {}, fxUsdTwd: null, fxRates: null, stockUpdatedAt: null, errors: [] }
@@ -156,9 +160,9 @@ export async function loadPrices(holdings) {
   const fundSymbols = [
     ...new Set(holdings.filter((h) => h.category === 'fund' && h.symbol).map((h) => String(h.symbol).toUpperCase())),
   ]
-  if (usSymbols.length || fundSymbols.length) {
+  {
     try {
-      const j = await fetchViaEdge(usSymbols, fundSymbols)
+      const j = await fetchViaEdge(usSymbols, fundSymbols, REALTIME_TW)
       for (const [sym, price] of Object.entries(j?.us || {})) {
         if (Number.isFinite(Number(price))) out.prices[`us_stock:${sym.toUpperCase()}`] = Number(price)
       }
@@ -167,6 +171,15 @@ export async function loadPrices(holdings) {
       }
       for (const [sym, nav] of Object.entries(j?.fund || {})) {
         if (Number.isFinite(Number(nav))) out.prices[`fund:${sym.toUpperCase()}`] = Number(nav)
+      }
+      // 台股即時價：蓋掉 prices.json 的價格，並更新報價時間
+      for (const [sym, price] of Object.entries(j?.tw || {})) {
+        const code = sym.toUpperCase()
+        if (!(Number(price) > 0)) continue
+        out.prices[`tw_stock:${code}`] = Number(price)
+        const chg = j?.twChg?.[sym]
+        if (Number.isFinite(Number(chg))) out.changePct[`tw_stock:${code}`] = Number(chg)
+        out.realtime[code] = { ...(out.realtime[code] || {}), price: Number(price), time: j?.twTime?.[sym] || out.realtime[code]?.time || null }
       }
       // 這些代號連快取都沒有、Edge 也沒查到，才提示使用者
       for (const s of usSymbols) if (out.prices[`us_stock:${s}`] == null) out.errors.push(`美股 ${s} 抓不到報價`)
