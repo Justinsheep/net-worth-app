@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    # 每 30 分鐘重新抓報價並重新部署（GitHub 排程尖峰時可能延遲數分鐘）
-    - cron: '*/30 * * * *'
+    # 每 30 分鐘重新抓報價（00631L 盤中即時價）並重新部署。
+    # 刻意避開整點／半點：GitHub 在整點會大量延遲甚至丟掉排程，錯開幾分鐘比較穩。
+    - cron: '7,37 * * * *'
   workflow_dispatch: {}
 
 permissions:

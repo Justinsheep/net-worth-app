@@ -454,6 +454,31 @@ async function fundPrices() {
 
 // 投資規則要用的歷史高點：證交所歷史收盤（seed 檔 + 補抓最近幾個月），還原股票分割後算出高點。
 // 抓不到就退回只用 seed，再不行就不寫，前端會提示並允許手動輸入高點。
+// 盤中即時價：證交所 MIS 即時行情（指定的幾檔改用「最新成交價」，不是每日收盤價）。
+// 瀏覽器不能直連（沒有 CORS），所以放在排程裡抓、寫進 prices.json 的 realtime 欄位，並覆蓋 tw_stock 價格。
+// 收盤後／假日這個價格就是最後一盤的收盤價；抓不到的檔案維持原本的每日收盤價。
+const REALTIME_CODES = ['00631L']
+async function twRealtime(codes) {
+  const out = {}
+  if (!codes.length) return out
+  const ex = codes.flatMap((c) => [`tse_${c}.tw`, `otc_${c}.tw`]).join('|')
+  const res = await fetch(`https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(ex)}&json=1&delay=0`, {
+    headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://mis.twse.com.tw/stock/index.jsp' },
+  })
+  if (!res.ok) throw new Error('MIS HTTP ' + res.status)
+  const j = await res.json()
+  for (const r of j.msgArray || []) {
+    const price = num(r.z) ?? num(r.trade?.z) // z 是最新成交價；剛開盤還沒成交時是 '-'，退回最近一筆成交
+    const prev = num(r.y)
+    if (!(price > 0)) continue
+    // tlong 是 MIS 給的毫秒時間戳（最後更新時間），最不會有時區問題
+    const ms = Number(r.tlong)
+    const time = Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null
+    out[r.c] = { price, prevClose: prev, time }
+  }
+  return out
+}
+
 async function histData() {
   const out = {}
   const seed = await loadSeed()
@@ -477,6 +502,12 @@ async function main() {
   const now = new Date().toISOString()
   const fund = fundData.funds
   const hist = await histData().catch((e) => { console.warn('histData 失敗：', e.message); return {} })
+  const realtime = await twRealtime(REALTIME_CODES).catch((e) => { console.warn('即時價抓取失敗，沿用收盤價：', e.message); return {} })
+  for (const [code, q] of Object.entries(realtime)) {
+    tw.prices[code] = q.price
+    if (q.prevClose > 0) tw.chg[code] = (q.price - q.prevClose) / q.prevClose
+  }
+  console.log('即時價：', Object.entries(realtime).map(([c, q]) => c + ' ' + q.price + ' @' + q.time).join('、') || '（無）')
 
   await fs.mkdir(path.join(root, 'public'), { recursive: true })
   await fs.writeFile(
@@ -500,6 +531,7 @@ async function main() {
       us_stock: usPrices,
       fund: fundNav,
       hist,
+      realtime,
     }, null, 2)
   )
 

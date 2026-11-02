@@ -49,12 +49,9 @@ export function normalizePlan(p) {
 
 // 決定這一輪的高點：手動指定優先；否則用歷史資料，並確保不會低於目前價格
 export function resolveAth(plan, hist, price) {
-  if (plan.manualAth > 0) {
-    const ath = Math.max(plan.manualAth, price || 0)
-    return { ath, athDate: ath === plan.manualAth ? '手動' : hist?.lastDate || null, low: hist?.low ?? null, manual: true }
-  }
+  // 高點是「收盤價」的歷史高點；現價是盤中即時價，盤中衝過高點但收盤沒站上，不算創新高、不重置這一輪
+  if (plan.manualAth > 0) return { ath: plan.manualAth, athDate: '手動', low: hist?.low ?? null, manual: true }
   if (!hist?.ath) return null
-  if (price > hist.ath) return { ath: price, athDate: hist.lastDate, low: price, manual: false }
   return { ath: hist.ath, athDate: hist.athDate, low: hist.low ?? null, manual: false }
 }
 

@@ -137,3 +137,12 @@ test('沒有分割：原始價不變', () => {
   assert.equal(splits.length, 0)
   assert.deepEqual(adj, [['2026-01-02', 10], ['2026-01-03', 11], ['2026-01-04', 9.9]])
 })
+
+test('盤中即時價衝過高點但收盤高點沒變：不算創新高、不重置這一輪', () => {
+  let plan = mk()
+  plan = markUsed(plan, [0], { price: 90, amount: 60, date: '2026-10-02' })
+  const r = evaluate(plan, { stockValue: 700, poolValue: 300, price: 103, hist: hist() }) // 高點收盤 100，盤中 103
+  assert.equal(r.changed, false)
+  assert.ok(r.plan.used[0])
+  assert.equal(r.drawdown, 0)
+})

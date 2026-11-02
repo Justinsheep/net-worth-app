@@ -44,6 +44,15 @@ function EyeIcon({ off }) {
   )
 }
 
+// 即時報價的時間（台灣時間 MM/DD HH:mm）；超過兩天沒更新就不標示「即時」
+function fmtQuoteTime(iso) {
+  if (!iso) return null
+  const t = new Date(iso)
+  if (Number.isNaN(t.getTime()) || Date.now() - t.getTime() > 2 * 86400000) return null
+  const p = new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(t)
+  return p
+}
+
 export default function App() {
   const holdings = useLiveQuery(
     () => db.holdings.orderBy('updatedAt').reverse().filter((h) => !h.deleted).toArray(),
@@ -78,6 +87,7 @@ export default function App() {
   const [openCat, setOpenCat] = useState(null)
   const [rowOrders, setRowOrders] = useState({}) // 細項頁：使用者長按拖曳存下的列順序，依分類 key 分開存
   const [changePct, setChangePct] = useState({})
+  const [realtime, setRealtime] = useState({}) // 盤中即時價的報價時間（00631L）
   const [hist, setHist] = useState({}) // 個別標的的歷史高點等（來自 prices.json）
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
@@ -210,6 +220,7 @@ export default function App() {
       setPrices(r.prices)
       setChangePct(r.changePct || {})
       setHist(r.hist || {})
+      setRealtime(r.realtime || {})
       setPriceMeta({ updatedAt: new Date().toISOString(), stockUpdatedAt: r.stockUpdatedAt, errors: r.errors })
       if (r.fxRates) setFxRates(r.fxRates)
       if (fxAuto && r.fxUsdTwd) {
@@ -458,7 +469,7 @@ export default function App() {
                 <span className="live-dot" />
                 報價更新於 {updatedTime}
               </span>
-              <span className="pricebar-note">加密貨幣・匯率 即時　|　台股 來自每日收盤</span>
+              <span className="pricebar-note">加密貨幣・匯率 即時　|　00631L 盤中即時（每 30 分鐘）　|　其他台股 來自每日收盤</span>
               <button className="ghost-mini" onClick={refresh} disabled={loading}>
                 {loading ? '更新中…' : '↻ 重新整理'}
               </button>
@@ -473,7 +484,7 @@ export default function App() {
             </section>
 
             {planEval && (
-              <PlanCard result={planEval} poolName={planPool?.name} onMarkUsed={planMarkUsed} onTradeDeploy={planTradeDeploy} onTradeSell={planTradeSell} />
+              <PlanCard result={planEval} poolName={planPool?.name} quoteTime={fmtQuoteTime(realtime[plan.symbol]?.time)} onMarkUsed={planMarkUsed} onTradeDeploy={planTradeDeploy} onTradeSell={planTradeSell} />
             )}
             {plan?.enabled && !planPool && (
               <section className="panel plan-card"><h3 className="panel-title">00631L 今日建議</h3><p className="plan-note">還沒綁定現金池帳戶，請到「設定 → 投資規則」選一個帳戶。</p></section>

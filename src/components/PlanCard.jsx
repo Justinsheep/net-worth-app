@@ -6,7 +6,7 @@ const trancheText = (idx) => idx.map((i) => i + 1).join('、')
 
 // 總覽頁的「今日 00631L 建議」卡片：一眼看出今天新資金該進現金池還是買正二，
 // 以及有沒有加碼（下跌）或賣出（占比過高）的指示。
-export default function PlanCard({ result, poolName, onMarkUsed, onTradeDeploy, onTradeSell }) {
+export default function PlanCard({ result, poolName, quoteTime, onMarkUsed, onTradeDeploy, onTradeSell }) {
   // 預設收合；展開／收合狀態記在這台裝置（localStorage），下次打開維持上次的樣子
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem('planCardOpen') === '1' } catch { return false }
@@ -108,8 +108,9 @@ export default function PlanCard({ result, poolName, onMarkUsed, onTradeDeploy, 
           <span className="plan-stat-sub">{r.athDate}</span>
         </div>
         <div>
-          <span className="plan-stat-label">現價</span>
+          <span className="plan-stat-label">現價{quoteTime ? '（即時）' : ''}</span>
           <span className="plan-stat-value">{fmtNum(r.price)}</span>
+          {quoteTime && <span className="plan-stat-sub">{quoteTime}</span>}
         </div>
         <div>
           <span className="plan-stat-label">距高點</span>
