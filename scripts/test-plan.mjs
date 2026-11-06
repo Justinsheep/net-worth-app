@@ -146,3 +146,44 @@ test('盤中即時價衝過高點但收盤高點沒變：不算創新高、不�
   assert.ok(r.plan.used[0])
   assert.equal(r.drawdown, 0)
 })
+
+test('價格碰到加倉價就鎖住：彈回去也繼續顯示加倉，不會一下有一下沒有', () => {
+  // 第一次：盤中跌到 89（−11%），碰到第 1 倉
+  let r = evaluate(mk(), { stockValue: 600, poolValue: 300, price: 89, hist: hist() })
+  assert.equal(r.headline, 'deploy')
+  assert.equal(r.changed, true)
+  assert.ok(r.plan.touched[0])
+  // 第二次：價格彈回 95（−5%），收盤高點/低點資料都沒變——之前會消失，現在要繼續顯示
+  r = evaluate(r.plan, { stockValue: 650, poolValue: 300, price: 95, hist: hist() })
+  assert.equal(r.headline, 'deploy')
+  assert.deepEqual(r.actions.find((a) => a.type === 'deploy').indexes, [0])
+  assert.equal(r.changed, false) // 已經鎖住，不會每次都寫回
+  // 按「我已執行」之後才消失
+  r = evaluate(markUsed(r.plan, [0], { price: 95, amount: 60, date: '2026-11-06' }), { stockValue: 650, poolValue: 240, price: 95, hist: hist() })
+  assert.equal(r.actions.some((a) => a.type === 'deploy'), false)
+})
+
+test('創新高開始新一輪：鎖住的記錄一起清掉', () => {
+  let r = evaluate(mk(), { stockValue: 600, poolValue: 300, price: 89, hist: hist() })
+  r = evaluate(r.plan, { stockValue: 800, poolValue: 300, price: 112, hist: hist({ ath: 112, athDate: '2026-11-20', low: 112, last: 112 }) })
+  assert.ok(r.plan.touched.every((t) => t === null))
+  assert.equal(r.actions.some((a) => a.type === 'deploy'), false)
+})
+
+test('五倉都動用、現金池空了：占比雖然破 90% 也不叫你賣（剛加碼完不該賣）', () => {
+  let plan = mk()
+  plan = markUsed(plan, [0, 1, 2, 3, 4], { price: 55, amount: 300, date: '2026-11-06' })
+  const r = evaluate(plan, { stockValue: 1000, poolValue: 0, price: 55, hist: hist({ low: 50 }) })
+  assert.equal(r.actions.some((a) => a.type === 'sell'), false)
+  assert.ok(r.sellHeld)
+  assert.equal(r.monthly.mode, 'pool') // 新資金優先補回現金池
+})
+
+test('創新高、倉位重新開放之後，占比 > 90% 才照常建議賣出', () => {
+  let plan = mk()
+  plan = markUsed(plan, [0, 1, 2, 3, 4], { price: 55, amount: 300, date: '2026-11-06' })
+  const r = evaluate(plan, { stockValue: 1000, poolValue: 50, price: 120, hist: hist({ ath: 120, athDate: '2026-12-01', low: 120, last: 120 }) })
+  assert.ok(r.plan.used.every((u) => u === null))
+  assert.ok(r.actions.some((a) => a.type === 'sell'))
+  assert.equal(r.sellHeld, null)
+})

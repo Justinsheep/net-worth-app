@@ -33,6 +33,7 @@ export function newPlan() {
     params: { ...DEFAULT_PARAMS, levels: [...DEFAULT_PARAMS.levels] },
     cycle: null, // { ath, athDate }：這一輪是以哪個高點起算
     used: DEFAULT_PARAMS.levels.map(() => null), // 每倉 null＝可用；有值＝這一輪已動用 { date, price, amount }
+    touched: DEFAULT_PARAMS.levels.map(() => null), // 每倉「價格碰到過加倉價」的記錄 { time, price }：碰到就鎖住，價格彈回去也繼續顯示加倉，直到動用或創新高
     paused: false, // 已暫停買正二（占比超過 80% 之後，要降到 70% 才解除）
     manualAth: null, // 手動指定高點（自動抓不到或分割還原有誤時的備援）
     updatedAt: Date.now(),
@@ -44,7 +45,8 @@ export function normalizePlan(p) {
   const base = newPlan()
   const params = { ...base.params, ...(p?.params || {}) }
   const used = Array.from({ length: params.levels.length }, (_, i) => p?.used?.[i] ?? null)
-  return { ...base, ...p, params, used }
+  const touched = Array.from({ length: params.levels.length }, (_, i) => p?.touched?.[i] ?? null)
+  return { ...base, ...p, params, used, touched }
 }
 
 // 決定這一輪的高點：手動指定優先；否則用歷史資料，並確保不會低於目前價格
@@ -63,7 +65,7 @@ export function initCycle(plan, hist, price) {
   const levels = plan.params.levels
   const maxDd = maxDrawdownOf(a, price)
   const used = levels.map((lv) => (maxDd * 100 + EPS >= lv ? { date: '啟用前', price: null, amount: null, initial: true } : null))
-  return { ...plan, cycle: { ath: a.ath, athDate: a.athDate }, used, updatedAt: Date.now() }
+  return { ...plan, cycle: { ath: a.ath, athDate: a.athDate }, used, touched: levels.map(() => null), updatedAt: Date.now() }
 }
 
 function maxDrawdownOf(a, price) {
@@ -85,7 +87,7 @@ export function evaluate(planIn, { stockValue, poolValue, price, hist }) {
     next = initCycle(plan, hist, price)
     changed = true
   } else if (a.ath > plan.cycle.ath + EPS) {
-    next = { ...plan, cycle: { ath: a.ath, athDate: a.athDate }, used: p.levels.map(() => null) }
+    next = { ...plan, cycle: { ath: a.ath, athDate: a.athDate }, used: p.levels.map(() => null), touched: p.levels.map(() => null) }
     changed = true
   } else if (a.ath < plan.cycle.ath - EPS) {
     next = { ...plan, cycle: { ath: a.ath, athDate: a.athDate } } // 高點被手動調低：不重置倉位
@@ -109,14 +111,24 @@ export function evaluate(planIn, { stockValue, poolValue, price, hist }) {
   // ---- 下跌加碼 ----
   const drawdown = Math.max(0, (a.ath - price) / a.ath)
   const maxDd = maxDrawdownOf(a, price)
+
+  // 價格一碰到加倉價就「鎖住」這一倉：之後價格彈回去（盤中來回跳動）也繼續顯示加倉，
+  // 直到按「我已執行」或創新高開始新一輪，不會一下有一下沒有
+  const touched = p.levels.map((lv, i) => {
+    if (next.touched[i]) return next.touched[i]
+    if (next.used[i] || maxDd * 100 + EPS < lv) return null
+    return { time: new Date().toISOString(), price: drawdown * 100 + EPS >= lv ? price : a.low }
+  })
+  if (touched.some((t, i) => !!t !== !!next.touched[i])) { next = { ...next, touched }; changed = true }
+
   const tranches = p.levels.map((level, i) => {
     const triggerPrice = a.ath * (1 - level / 100)
     const usedInfo = next.used[i]
     let status
     if (usedInfo) status = 'used'
-    else if (maxDd * 100 + EPS >= level) status = 'pending'
+    else if (touched[i]) status = 'pending'
     else status = 'waiting'
-    return { index: i, level, status, usedInfo, triggerPrice }
+    return { index: i, level, status, usedInfo, triggerPrice, touchedInfo: touched[i] }
   })
   const pending = tranches.filter((t) => t.status === 'pending')
   const unused = tranches.filter((t) => t.status !== 'used').length
@@ -124,16 +136,22 @@ export function evaluate(planIn, { stockValue, poolValue, price, hist }) {
 
   const actions = []
 
-  // 再平衡：占比 > 90% 才賣，賣到 80%
+  // 再平衡：占比 > 90% 才賣，賣到 80%。
+  // 但這一輪已經動用（或正要動用）加碼倉時不賣：那時占比偏高是現金池轉成正二造成的，不是正二漲上來，
+  // 剛加碼完又叫你賣很矛盾；等創新高開始新一輪、倉位重新開放之後再平衡。
+  let sellHeld = null
   if (ratioPct != null && ratioPct > p.sellAbovePct + EPS) {
     const sellAmount = V - (p.sellToPct / 100) * total
-    if (sellAmount > 0) actions.push({ type: 'sell', amount: round(sellAmount), shares: sellAmount / price, toPct: p.sellToPct })
+    if (sellAmount > 0) {
+      if (tranches.some((t) => t.status !== 'waiting')) sellHeld = { amount: round(sellAmount), toPct: p.sellToPct }
+      else actions.push({ type: 'sell', amount: round(sellAmount), shares: sellAmount / price, toPct: p.sellToPct })
+    }
   }
 
   // 下跌加碼：動用現金池的 k/剩餘倉數
   if (pending.length > 0 && unused > 0) {
     const amount = Math.min(C, (C * pending.length) / unused)
-    actions.push({ type: 'deploy', indexes: pending.map((t) => t.index), levels: pending.map((t) => t.level), amount: round(amount), poolEmpty: C <= 0 })
+    actions.push({ type: 'deploy', indexes: pending.map((t) => t.index), levels: pending.map((t) => t.level), touched: pending.map((t) => t.touchedInfo), amount: round(amount), poolEmpty: C <= 0 })
   }
 
   // ---- 每月新增資金的去向 ----
@@ -173,6 +191,7 @@ export function evaluate(planIn, { stockValue, poolValue, price, hist }) {
     tranches,
     nextTrigger: nextWaiting,
     actions,
+    sellHeld,
     monthly,
     headline,
   }

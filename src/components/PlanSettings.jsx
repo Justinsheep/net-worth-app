@@ -49,14 +49,14 @@ export default function PlanSettings({ plan: planIn, accounts, hist, result, onS
     const levelsChanged = levels.join() !== p.levels.join()
     save({
       params: { ...p, levels, targetPct: t, pauseAbovePct: pa, allStockBelowPct: lo, sellAbovePct: sa, sellToPct: st },
-      ...(levelsChanged ? { used: levels.map(() => null), cycle: null } : {}),
+      ...(levelsChanged ? { used: levels.map(() => null), touched: levels.map(() => null), cycle: null } : {}),
     })
     setDraft(null)
   }
   function resetDefaults() {
     setDraft(null)
     setError('')
-    save({ params: { ...DEFAULT_PARAMS, levels: [...DEFAULT_PARAMS.levels], monthly: p.monthly }, used: DEFAULT_PARAMS.levels.map(() => null), cycle: null })
+    save({ params: { ...DEFAULT_PARAMS, levels: [...DEFAULT_PARAMS.levels], monthly: p.monthly }, used: DEFAULT_PARAMS.levels.map(() => null), touched: DEFAULT_PARAMS.levels.map(() => null), cycle: null })
   }
 
   const autoAth = hist?.ath ? `${fmtNum(hist.ath)}（${hist.athDate}）` : '尚未取得'

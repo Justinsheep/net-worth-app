@@ -3,6 +3,14 @@ import { fmtTwd, fmtNum } from '../calc'
 
 const pct = (x, d = 1) => (x == null ? '—' : (x * 100).toFixed(d) + '%')
 const trancheText = (idx) => idx.map((i) => i + 1).join('、')
+// 碰到加倉價的時間（台灣時間 MM/DD HH:mm）
+const fmtTouch = (t) => {
+  if (!t?.time) return ''
+  const d = new Date(t.time)
+  if (Number.isNaN(d.getTime())) return ''
+  const s = new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(d)
+  return t.price ? `${s} 碰到 ${fmtNum(t.price)}` : s
+}
 
 // 總覽頁的「今日 00631L 建議」卡片：一眼看出今天新資金該進現金池還是買正二，
 // 以及有沒有加碼（下跌）或賣出（占比過高）的指示。
@@ -73,7 +81,7 @@ export default function PlanCard({ result, poolName, quoteTime, onMarkUsed, onTr
         <div className="plan-alert deploy">
           <div className="plan-alert-title">動用第 {trancheText(deploy.indexes)} 倉加碼</div>
           <div className="plan-alert-body">
-            跌破高點 {deploy.levels.map((l) => `−${l}%`).join('、')}，從現金池{poolName ? `「${poolName}」` : ''}拿 <b>{fmtTwd(deploy.amount)}</b> 買 00631L。
+            已碰到加倉價（高點 {deploy.levels.map((l) => `−${l}%`).join('、')}）{deploy.touched.some(Boolean) ? `：${deploy.indexes.map((ix, k) => `第${ix + 1}倉 ${fmtTouch(deploy.touched[k])}`).join('；')}` : ''}，從現金池{poolName ? `「${poolName}」` : ''}拿 <b>{fmtTwd(deploy.amount)}</b> 買 00631L。
             {deploy.poolEmpty && <span className="plan-warn">（現金池目前沒有餘額）</span>}
           </div>
           <div className="plan-actions">
@@ -100,6 +108,12 @@ export default function PlanCard({ result, poolName, quoteTime, onMarkUsed, onTr
           <div className="plan-note">再買約 {fmtTwd(m.needAmount)} 的正二，占比會回到約 {r.plan.params.targetPct}%</div>
         )}
       </div>
+
+      {r.sellHeld && (
+        <div className="plan-note">
+          占比 {pct(r.ratio)} 超過 {r.plan.params.sellAbovePct}%，但這一輪已動用加碼倉（占比偏高是現金池轉成正二造成的），先不賣；等 00631L 創新高、開始新一輪再平衡。
+        </div>
+      )}
 
       <div className="plan-stats">
         <div>
